@@ -68,6 +68,8 @@ Defina a URL completa da API:
 API_UPSTREAM_URL=https://planopneumaticapi-production.up.railway.app
 ```
 
+O Railway fornece automaticamente a variavel `PORT`; o Nginx do frontend deve usa-la para escutar a porta publicada. Nao defina uma porta manual diferente no servico.
+
 No ambiente local do Compose, o valor e `http://api:3000`. No Railway, use o dominio privado entre servicos quando estiver disponivel; caso contrario, use o dominio publico da API com `https://`.
 
 Health check:
