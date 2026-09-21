@@ -9,6 +9,16 @@ const port = process.env.PORT || 3000;
 const host = process.env.HOST || "0.0.0.0";
 const frontendDirectory = path.join(__dirname, "..", "frontend");
 const sessionDurationInDays = 7;
+const frontendOrigin = process.env.FRONTEND_ORIGIN || "https://planopneumatic-production.up.railway.app";
+app.use((request, response, next) => {
+	const origin = request.get("origin");
+	if (origin === frontendOrigin) response.setHeader("Access-Control-Allow-Origin", origin);
+	response.setHeader("Vary", "Origin");
+	response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+	response.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
+	if (request.method === "OPTIONS") return response.sendStatus(204);
+	return next();
+});
 app.use(express.json());
 app.use(express.static(frontendDirectory));
 

@@ -8,6 +8,8 @@ const dashboardView = document.querySelector("#dashboard-view");
 const loginForm = document.querySelector("#login-form");
 const feedback = document.querySelector("#login-feedback");
 const detailModal = document.querySelector("#detail-modal");
+const apiOrigin = window.location.hostname === "planopneumatic-production.up.railway.app" ? "https://planopneumaticapi-production.up.railway.app" : window.location.origin;
+function apiUrl(url) { return new URL(url, apiOrigin).toString(); }
 
 function getSession() {
   try {
@@ -30,7 +32,7 @@ async function apiRequest(url, options = {}) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (session?.token) headers.Authorization = `Bearer ${session.token}`;
 
-  const response = await fetch(url, { ...options, headers });
+  const response = await fetch(apiUrl(url), { ...options, headers });
   if (response.status === 401) {
     clearSession();
     showLogin();
