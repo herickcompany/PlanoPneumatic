@@ -1,0 +1,16 @@
+FROM nginx:1.27-alpine
+
+ENV API_UPSTREAM=api:3000
+
+COPY frontend /usr/share/nginx/html
+COPY LogoPneumatic.png /usr/share/nginx/html/LogoPneumatic.png
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+COPY scripts/start-frontend.sh /usr/local/bin/start-frontend.sh
+
+RUN chmod +x /usr/local/bin/start-frontend.sh
+
+EXPOSE 80
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD wget --spider --quiet http://127.0.0.1/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/start-frontend.sh"]
+CMD ["nginx", "-g", "daemon off;"]

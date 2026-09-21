@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+backend/data
+*.db
+*.db-shm
+*.db-wal
+*-prototipo.html
+*-requisitos.md
+planejamento-issues-trello.md

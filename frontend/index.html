@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plano Pneumatic | Operacao</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main id="app" class="shell">
+      <section id="login-view" class="login-layout">
+        <div class="login-visual">
+          <div class="brand brand-light">
+            <img src="/logo.png" alt="Plano Pneumatic" />
+            <span>FLUXO OPERACIONAL</span>
+          </div>
+          <div class="visual-copy">
+            <p class="eyebrow">Controle de ponta a ponta</p>
+            <h1>Da triagem ao encerramento, tudo no mesmo fluxo.</h1>
+            <p>Centralize pedidos, trocas e garantias com rastreabilidade para cada etapa e cada responsável.</p>
+          </div>
+          <div class="visual-footer">© 2026 Plano Pneumatic</div>
+        </div>
+        <section class="login-panel" aria-labelledby="login-title">
+          <div class="login-panel-inner">
+            <p class="eyebrow">Acesso restrito</p>
+            <h2 id="login-title">Entrar no sistema</h2>
+            <p class="muted">Use suas credenciais corporativas para continuar.</p>
+            <form id="login-form" class="form" novalidate>
+              <label>
+                E-mail
+                <input id="email" name="email" type="email" autocomplete="username" placeholder="voce@empresa.com" required />
+              </label>
+              <label>
+                Senha
+                <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required />
+              </label>
+              <button class="button button-primary" type="submit">Entrar <span aria-hidden="true">→</span></button>
+              <p id="login-feedback" class="feedback" role="alert"></p>
+            </form>
+            <div class="dev-hint"><strong>Ambiente de desenvolvimento</strong><span>admin@planopneumatic.com · Admin123!</span></div>
+          </div>
+        </section>
+      </section>
+
+      <section id="dashboard-view" class="dashboard-layout hidden">
+        <aside class="sidebar">
+          <div class="brand brand-sidebar">
+            <img src="/logo.png" alt="Plano Pneumatic" />
+            <span>OPERAÇÃO</span>
+          </div>
+          <nav class="nav" aria-label="Navegação principal">
+            <a class="nav-link active" href="#dashboard"><span>▦</span> Dashboard</a>
+            <a class="nav-link" href="/triagem.html"><span>◎</span> Triagem</a>
+            <a class="nav-link" href="/pedido-venda.html"><span>▤</span> Pedidos de venda</a>
+            <a class="nav-link" href="/base-troca.html"><span>↻</span> Base de troca</a>
+            <a class="nav-link" href="/garantia.html"><span>✓</span> Garantias</a>
+            <a class="nav-link" href="/historico.html"><span>◷</span> Histórico</a>
+            <a class="nav-link" href="/relatorios.html"><span>▥</span> Relatórios</a>
+            <a class="nav-link" href="/configuracoes.html"><span>⚙</span> Configurações</a>
+            <a class="nav-link" href="/historico.html"><span>◷</span> Histórico</a>
+          </nav>
+          <div class="sidebar-bottom">
+            <div class="profile-mini"><span id="profile-initials">AD</span><div><strong id="profile-name">Administrador</strong><small id="profile-role">Administrador</small></div></div>
+            <button id="logout-button" class="logout-button" type="button">Sair <span>↗</span></button>
+          </div>
+        </aside>
+        <div class="dashboard-content">
+          <header class="topbar">
+            <div><p class="eyebrow">Visão geral</p><h1>Dashboard operacional</h1></div>
+            <div class="topbar-actions"><span class="date-label">20 de setembro de 2026</span><button class="icon-button" type="button" title="Notificações">♧</button></div>
+          </header>
+          <section class="welcome-row"><div><h2>Bom dia, <span id="welcome-name">Administrador</span>.</h2><p class="muted">Acompanhe os processos que precisam da sua atenção.</p></div><a class="button button-primary" href="/triagem.html">+ Novo processo</a></section>
+          <section id="indicator-grid" class="indicator-grid" aria-live="polite"></section>
+          <section class="content-grid">
+            <article class="panel process-panel"><div class="panel-heading"><div><p class="eyebrow">Acompanhamento</p><h2>Casos recentes</h2></div><a href="/historico.html">Ver histórico →</a></div><div class="table-wrap"><table><thead><tr><th>Processo</th><th>Cliente</th><th>Tipo</th><th>Status</th><th>Atualizado</th></tr></thead><tbody id="cases-body"></tbody></table></div></article>
+            <article class="panel attention-panel"><div class="panel-heading"><div><p class="eyebrow">Atenção</p><h2>Próximas ações</h2></div><span class="status-dot orange"></span></div><ul id="action-list" class="action-list"><li class="empty-action">Carregando próximas ações...</li></ul></article>
+          </section>
+        </div>
+      </section>
+    </main>
+    <div id="detail-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+      <div class="modal-card detail-card"><div class="panel-heading"><div><p class="eyebrow">Detalhes do processo</p><h2 id="detail-modal-title">Processo</h2></div><button id="close-detail-modal" class="close-button" type="button" aria-label="Fechar">×</button></div><div id="case-detail-content" class="detail-content"></div></div>
+    </div>
+    <script src="/case-editor.js" defer></script>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plano Pneumatic | Histórico</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="dashboard-layout" data-history-page>
+      <aside class="sidebar">
+        <div class="brand brand-sidebar"><img src="/logo.png" alt="Plano Pneumatic" /><span>OPERAÇÃO</span></div>
+        <nav class="nav"></nav>
+        <div class="sidebar-bottom"><div class="profile-mini"><span id="profile-initials">--</span><div><strong id="profile-name">Carregando</strong><small id="profile-role">Perfil</small></div></div><button id="logout-button" class="logout-button" type="button">Sair <span>↗</span></button></div>
+      </aside>
+      <div class="dashboard-content history-content">
+        <header class="topbar"><div><p class="eyebrow">Rastreabilidade e gestão</p><h1>Histórico de processos</h1></div><a class="back-link" href="/">← Dashboard</a></header>
+        <section class="history-toolbar panel">
+          <div class="panel-heading"><div><p class="eyebrow">Pesquisa</p><h2>Encontre um processo</h2></div><span id="result-count" class="process-status">0 resultados</span></div>
+          <form id="search-form" class="history-filters">
+            <label>Processo<input name="process" type="search" placeholder="Ex.: GAR-2026-0045" /></label>
+            <label>Cliente<input name="client" type="search" placeholder="Nome do cliente" /></label>
+            <label>Tipo<select name="type"><option value="">Todos</option><option>Pedido de venda</option><option>Base de troca</option><option>Garantia</option></select></label>
+            <label>Status<select name="status"><option value="">Todos</option><option>Criado</option><option>Em analise</option><option>Aguardando documento</option><option>Aprovado</option><option>Improcedente</option><option>Em faturamento</option><option>Processando</option><option>Concluido</option><option>Encerrado</option><option>Cancelado</option></select></label>
+            <label>Data de atualização<input name="updatedAt" type="date" /></label>
+            <div class="filter-actions"><button class="button button-primary" type="submit">Pesquisar <span>→</span></button><button id="clear-filters" class="button button-secondary" type="button">Limpar</button></div>
+          </form>
+        </section>
+        <section class="history-layout">
+          <article class="panel history-results"><div class="panel-heading"><div><p class="eyebrow">Resultados</p><h2>Processos encontrados</h2></div><span class="muted">Selecione uma linha para gerenciar</span></div><div class="table-wrap"><table><thead><tr><th>Processo</th><th>Cliente</th><th>Tipo</th><th>Status</th><th>Atualização</th></tr></thead><tbody id="history-body"></tbody></table></div></article>
+          <aside id="management-panel" class="panel management-panel"><div class="empty-selection"><span class="empty-icon">◷</span><h2>Selecione um processo</h2><p class="muted">Os dados, eventos e ações aparecerão aqui.</p></div></aside>
+        </section>
+      </div>
+    </main>
+    <script src="/case-editor.js" defer></script>
+    <script src="/historico.js" defer></script>
+    <script src="/history-editor.js" defer></script>
+  </body>
+</html>

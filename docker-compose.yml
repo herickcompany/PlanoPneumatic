@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-plano_pneumatic}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [app]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-plano_pneumatic}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@planopneumatic.com}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin123!}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrador}
+      SEED_OPERATOR_EMAIL: ${SEED_OPERATOR_EMAIL:-operador@planopneumatic.com}
+      SEED_OPERATOR_PASSWORD: ${SEED_OPERATOR_PASSWORD:-Operador123!}
+      SEED_OPERATOR_NAME: ${SEED_OPERATOR_NAME:-Operador de Triagem}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose: ["3000"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [app]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "${APP_PORT:-3000}:80"
+    environment:
+      API_UPSTREAM: api:3000
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [app]
+
+volumes:
+  postgres_data:
+
+networks:
+  app:
