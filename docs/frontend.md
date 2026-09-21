@@ -32,12 +32,12 @@ Para testar a imagem do frontend isoladamente:
 
 ```bash
 docker build -f Dockerfile.frontend -t planopneumatic-frontend .
-docker run --rm -p 8080:80 -e API_UPSTREAM=host.docker.internal:3000 planopneumatic-frontend
+docker run --rm -p 8080:80 -e API_UPSTREAM_URL=http://host.docker.internal:3000 planopneumatic-frontend
 ```
 
 Acesse http://localhost:8080.
 
-O valor de `API_UPSTREAM` deve apontar para `host.docker.internal:3000` quando a API estiver rodando na maquina host ou para `api:3000` dentro do Docker Compose.
+O valor de `API_UPSTREAM_URL` deve ser uma URL completa, como `http://host.docker.internal:3000` quando a API estiver rodando na maquina host ou `http://api:3000` dentro do Docker Compose. A variavel antiga `API_UPSTREAM` continua aceita como compatibilidade.
 
 ## Arquivos principais
 
@@ -81,6 +81,6 @@ Invoke-WebRequest http://localhost:3000/api/health
 ## Cuidados
 
 - O frontend nao deve conter senhas, tokens ou `DATABASE_URL`.
-- O `API_UPSTREAM` deve ser configurado pelo ambiente, nunca fixado para uma URL local no deploy.
+- O `API_UPSTREAM_URL` deve ser configurado pelo ambiente, nunca fixado para uma URL local no deploy.
 - Alteracoes de HTML devem preservar os seletores usados pelos scripts.
 - O asset publico do logo e `/logo.png`; o arquivo de origem e `LogoPneumatic.png`.
