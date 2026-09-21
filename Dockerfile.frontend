@@ -1,6 +1,6 @@
 FROM nginx:1.27-alpine
 
-ENV API_UPSTREAM=api:3000
+ENV API_UPSTREAM_URL=http://api:3000
 
 COPY frontend /usr/share/nginx/html
 COPY LogoPneumatic.png /usr/share/nginx/html/LogoPneumatic.png

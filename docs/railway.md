@@ -62,13 +62,13 @@ A API precisa retornar HTTP 200 e o corpo deve indicar `status: ok` quando tambe
 
 Configure o servico para usar `Dockerfile.frontend`.
 
-Defina:
+Defina a URL completa da API:
 
 ```text
-API_UPSTREAM=<host-e-porta-da-api>
+API_UPSTREAM_URL=https://planopneumaticapi-production.up.railway.app
 ```
 
-No ambiente local do Compose, o valor e `api:3000`. No Railway, use o hostname privado entre servicos quando estiver disponivel. Caso o proxy privado nao esteja disponivel para o servico, use o dominio interno ou publico fornecido pelo Railway, conforme a configuracao da rede.
+No ambiente local do Compose, o valor e `http://api:3000`. No Railway, use o dominio privado entre servicos quando estiver disponivel; caso contrario, use o dominio publico da API com `https://`.
 
 Health check:
 

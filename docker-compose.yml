@@ -45,7 +45,7 @@ services:
     ports:
       - "${APP_PORT:-3000}:80"
     environment:
-      API_UPSTREAM: api:3000
+      API_UPSTREAM_URL: http://api:3000
     depends_on:
       api:
         condition: service_healthy
