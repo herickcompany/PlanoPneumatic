@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS webhooks (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  endpoint_url TEXT NOT NULL,
+  secret TEXT NOT NULL,
+  events JSONB NOT NULL DEFAULT '[]'::jsonb,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by INTEGER REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

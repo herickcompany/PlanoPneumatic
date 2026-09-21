@@ -90,11 +90,14 @@ scripts/       Scripts de inicializacao de containers
 - [Executar o backend](docs/backend.md)
 - [Executar o frontend](docs/frontend.md)
 - [Publicar no Railway](docs/railway.md)
+- [Operacao e suporte](docs/operacao-suporte.md)
 - [Requisitos funcionais](docs/)
 
 ## API principal
 
 - `POST /api/auth/login`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 - `GET /api/dashboard/summary`
@@ -108,6 +111,7 @@ scripts/       Scripts de inicializacao de containers
 - `POST /api/users`
 - `PATCH /api/account`
 - `GET /api/health`
+- `GET /health/db`
 
 As rotas protegidas exigem o header `Authorization: Bearer <token>`.
 
@@ -116,6 +120,7 @@ As rotas protegidas exigem o header `Authorization: Bearer <token>`.
 Execute as verificacoes basicas:
 
 ```bash
+npm test
 node --check backend/server.js
 node --check frontend/app.js
 node --check frontend/admin-page.js
@@ -125,6 +130,8 @@ docker compose config
 docker build -t planopneumatic-api-check .
 docker build -f Dockerfile.frontend -t planopneumatic-frontend-check .
 ```
+
+As migrations SQL ficam em `backend/migrations` e sao aplicadas uma vez, em ordem, com controle na tabela `schema_migrations`. Em producao, `DATABASE_URL`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_OPERATOR_EMAIL` e `SEED_OPERATOR_PASSWORD` devem ser configurados como secrets.
 
 ## Versionamento e publicacao
 
@@ -138,3 +145,11 @@ O nome recomendado para o repositorio e `PlanoPneumatic`. Antes de publicar:
 6. Configure os servicos do Railway conforme [docs/railway.md](docs/railway.md).
 
 Nao coloque senhas, tokens ou `DATABASE_URL` no repositorio.
+
+## CI/CD e ambientes
+
+O workflow `.github/workflows/ci.yml` executa testes, validacoes e builds em pull requests e na branch `main`. O deploy de producao exige o ambiente protegido `production` e os secrets `RAILWAY_TOKEN` e `RAILWAY_FRONTEND_SERVICE`.
+
+Use `.env.homolog.example` e `.env.production.example` como modelos. Os valores reais devem ser configurados nos secrets da plataforma, nunca versionados.
+
+Os scripts `scripts/backup-postgres.ps1` e `scripts/backup-postgres.sh` criam dumps PostgreSQL com retencao configuravel. Agende sua execucao em um ambiente com acesso ao banco e teste o restore periodicamente.

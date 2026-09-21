@@ -8,6 +8,8 @@ const feedback = document.querySelector("#triage-feedback");
 const nextButton = document.querySelector("#triage-next");
 const backButton = document.querySelector("#triage-back");
 const submitButton = document.querySelector("#triage-submit");
+const apiOrigin = window.location.hostname === "planopneumatic-production.up.railway.app" ? "https://planopneumaticapi-production.up.railway.app" : window.location.origin;
+function apiUrl(url) { return new URL(url, apiOrigin).toString(); }
 let currentStage = 1;
 
 function getSession() {
@@ -24,7 +26,7 @@ async function apiRequest(url, options = {}) {
     window.location.href = "/";
     return null;
   }
-  const response = await fetch(url, {
+  const response = await fetch(apiUrl(url), {
     ...options,
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}`, ...(options.headers || {}) }
   });

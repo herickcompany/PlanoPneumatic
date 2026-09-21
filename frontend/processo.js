@@ -5,6 +5,8 @@ document.head.appendChild(sharedShellScript);
 const sessionKey = "plano-pneumatic-session";
 const page = document.querySelector("[data-process-type]");
 const processType = page.dataset.processType;
+const apiOrigin = window.location.hostname === "planopneumatic-production.up.railway.app" ? "https://planopneumaticapi-production.up.railway.app" : window.location.origin;
+function apiUrl(url) { return new URL(url, apiOrigin).toString(); }
 const config = {
   "Pedido de venda": { title: "Novo pedido de venda", eyebrow: "Etapa 2 · Comercial", description: "Valide os dados comerciais antes de encaminhar para faturamento ou operação.", submit: "Salvar pedido", fields: ["salesRepresentative", "unitPrice", "paymentTerms", "salesChannel"] },
   "Base de troca": { title: "Nova base de troca", eyebrow: "Etapa 2 · Operação", description: "Registre a origem, condição e justificativa do item que será trocado.", submit: "Salvar troca", fields: ["exchangeReason", "itemCondition", "originOrder", "trackingCode"] },
@@ -15,7 +17,7 @@ function getSession() { try { return JSON.parse(localStorage.getItem(sessionKey)
 async function apiRequest(url, options = {}) {
   const session = getSession();
   if (!session?.token) { window.location.href = "/"; return null; }
-  const response = await fetch(url, { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}`, ...(options.headers || {}) } });
+  const response = await fetch(apiUrl(url), { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}`, ...(options.headers || {}) } });
   if (response.status === 401) { localStorage.removeItem(sessionKey); window.location.href = "/"; return null; }
   if (!response.ok) { const error = await response.json().catch(() => ({ message: "Nao foi possivel concluir o processo." })); throw new Error(error.message); }
   return response.json();

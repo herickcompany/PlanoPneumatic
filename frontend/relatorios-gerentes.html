@@ -4,20 +4,19 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Plano Pneumatic | Configurações</title>
+    <title>Plano Pneumatic | Desempenho de gerentes</title>
     <link rel="stylesheet" href="/styles.css" />
 </head>
 
 <body>
-    <main class="dashboard-layout" data-admin-page="settings">
+    <main class="dashboard-layout" data-admin-page="reports-managers">
         <aside class="sidebar">
             <div class="brand brand-sidebar"><img src="/logo.png" alt="Plano Pneumatic" /><span>OPERAÇÃO</span></div>
             <nav class="nav"><a class="nav-link" href="/"><span>▦</span> Dashboard</a><a class="nav-link"
-                    href="/triagem.html"><span>◎</span> Triagem</a><a class="nav-link"
+                    href="/triagem.html"><span>◎</span> Triagem</a><a class="nav-link active"
+                    href="/relatorios.html"><span>◷</span> Relatórios</a><a class="nav-link"
                     href="/pendencias.html"><span>!</span> Pendências</a><a class="nav-link"
-                    href="/cadastros.html"><span>♙</span> Cadastros</a><a class="nav-link active"
-                    href="/configuracoes.html"><span>⚙</span> Configurações</a><a class="nav-link"
-                    href="/conta.html"><span>◉</span> Minha conta</a></nav>
+                    href="/configuracoes.html"><span>⚙</span> Configurações</a></nav>
             <div class="sidebar-bottom">
                 <div class="profile-mini"><span id="profile-initials">--</span>
                     <div><strong id="profile-name">Carregando</strong><small id="profile-role">Perfil</small></div>
@@ -27,17 +26,19 @@
         <div class="dashboard-content admin-content">
             <header class="topbar">
                 <div>
-                    <p class="eyebrow">Administração</p>
-                    <h1>Configurações</h1>
-                </div>
-                <div class="topbar-actions"><a class="button button-secondary compact-button"
-                        href="/cadastros.html">Criar conta <span>+</span></a><a class="back-link" href="/">←
-                        Dashboard</a></div>
+                    <p class="eyebrow">Gestão e auditoria</p>
+                    <h1>Desempenho de gerentes</h1>
+                </div><a class="back-link" href="/">← Dashboard</a>
             </header>
-            <div id="page-content" class="admin-page-content"></div>
+            <nav class="report-tabs" aria-label="Relatórios">
+                <a class="report-tab" href="/relatorios.html">Desempenho</a>
+                <a class="report-tab" href="/relatorios-time.html">Desempenho por time</a>
+                <a class="report-tab active" data-tab="managers" href="/relatorios-gerentes.html">Desempenho de gerentes</a>
+            </nav>
+            <div id="page-content" class="admin-page-content">
+                <p class="muted">Carregando relatório...</p>
+            </div>
         </div>
     </main>
     <script src="/admin-page.js" defer></script>
 </body>
-
-</html>

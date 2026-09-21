@@ -8,7 +8,7 @@
   </head>
   <body>
     <main id="app" class="shell">
-      <section id="login-view" class="login-layout">
+      <section id="login-view" class="login-layout hidden">
         <div class="login-visual">
           <div class="brand brand-light">
             <img src="/logo.png" alt="Plano Pneumatic" />
@@ -70,11 +70,17 @@
             <div class="topbar-actions"><span class="date-label">20 de setembro de 2026</span><button class="icon-button" type="button" title="Notificações">♧</button></div>
           </header>
           <section class="welcome-row"><div><h2>Bom dia, <span id="welcome-name">Administrador</span>.</h2><p class="muted">Acompanhe os processos que precisam da sua atenção.</p></div><a class="button button-primary" href="/triagem.html">+ Novo processo</a></section>
+          <form id="dashboard-filters" class="dashboard-filters panel">
+            <label>De<input name="from" type="date" /></label><label>Até<input name="to" type="date" /></label><label>Tipo<select name="type"><option value="">Todos</option><option>Pedido de venda</option><option>Base de troca</option><option>Garantia</option></select></label><label>Status<select name="status"><option value="">Todos</option><option>Criado</option><option>Em analise</option><option>Aguardando documento</option><option>Aprovado</option><option>Concluido</option><option>Encerrado</option><option>Cancelado</option></select></label><label>Cliente<input name="client" type="search" placeholder="Buscar cliente" /></label><label>Responsável<input name="responsible" type="search" placeholder="Nome" /></label><div class="filter-actions"><button class="button button-primary" type="submit">Aplicar filtros</button><button id="clear-dashboard-filters" class="button button-secondary" type="button">Limpar</button></div>
+          </form>
           <section id="indicator-grid" class="indicator-grid" aria-live="polite"></section>
+          <section class="comparison-strip panel"><div><p class="eyebrow">Comparativo</p><h2>Período anterior</h2></div><div id="comparison-grid" class="comparison-grid"></div></section>
+          <section class="dashboard-insights"><article class="panel"><div class="panel-heading"><div><p class="eyebrow">Evolução</p><h2>Volume por dia</h2></div></div><div id="evolution-chart" class="bar-chart"></div></article><article class="panel"><div class="panel-heading"><div><p class="eyebrow">Distribuição</p><h2>Processos por tipo</h2></div></div><div id="type-chart" class="distribution-list"></div></article></section>
           <section class="content-grid">
             <article class="panel process-panel"><div class="panel-heading"><div><p class="eyebrow">Acompanhamento</p><h2>Casos recentes</h2></div><a href="/historico.html">Ver histórico →</a></div><div class="table-wrap"><table><thead><tr><th>Processo</th><th>Cliente</th><th>Tipo</th><th>Status</th><th>Atualizado</th></tr></thead><tbody id="cases-body"></tbody></table></div></article>
-            <article class="panel attention-panel"><div class="panel-heading"><div><p class="eyebrow">Atenção</p><h2>Próximas ações</h2></div><span class="status-dot orange"></span></div><ul id="action-list" class="action-list"><li class="empty-action">Carregando próximas ações...</li></ul></article>
+            <article class="panel attention-panel"><div class="panel-heading"><div><p class="eyebrow">Atenção</p><h2>Minhas pendências</h2></div><span class="status-dot orange"></span></div><ul id="action-list" class="action-list"><li class="empty-action">Carregando próximas ações...</li></ul></article>
           </section>
+          <section class="panel dashboard-alerts"><div class="panel-heading"><div><p class="eyebrow">Alertas</p><h2>Processos próximos do vencimento</h2></div><span id="alert-count" class="process-status">0 alertas</span></div><div id="alert-list" class="alert-list"></div></section>
         </div>
       </section>
     </main>

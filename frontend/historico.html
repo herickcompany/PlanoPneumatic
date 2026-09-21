@@ -19,7 +19,7 @@
           <div class="panel-heading"><div><p class="eyebrow">Pesquisa</p><h2>Encontre um processo</h2></div><span id="result-count" class="process-status">0 resultados</span></div>
           <form id="search-form" class="history-filters">
             <label>Processo<input name="process" type="search" placeholder="Ex.: GAR-2026-0045" /></label>
-            <label>Cliente<input name="client" type="search" placeholder="Nome do cliente" /></label>
+            <label>Cliente<input name="client" type="search" placeholder="Nome do cliente" /></label><label>Produto<input name="product" type="search" placeholder="Produto" /></label><label>Código<input name="productCode" type="search" placeholder="Código" /></label><label>Documento<input name="document" type="search" placeholder="NF, pedido ou documento" /></label>
             <label>Tipo<select name="type"><option value="">Todos</option><option>Pedido de venda</option><option>Base de troca</option><option>Garantia</option></select></label>
             <label>Status<select name="status"><option value="">Todos</option><option>Criado</option><option>Em analise</option><option>Aguardando documento</option><option>Aprovado</option><option>Improcedente</option><option>Em faturamento</option><option>Processando</option><option>Concluido</option><option>Encerrado</option><option>Cancelado</option></select></label>
             <label>Data de atualização<input name="updatedAt" type="date" /></label>
@@ -35,5 +35,6 @@
     <script src="/case-editor.js" defer></script>
     <script src="/historico.js" defer></script>
     <script src="/history-editor.js" defer></script>
+    <script src="/case-management.js" defer></script>
   </body>
 </html>

@@ -29,6 +29,7 @@ O endpoint de disponibilidade e:
 
 ```text
 GET http://localhost:3000/health
+GET http://localhost:3000/health/db
 ```
 
 Quando acessada pelo frontend Nginx, a mesma verificacao fica em:
@@ -103,4 +104,5 @@ O `migrate` cria as tabelas caso ainda nao existam e executa os seeds iniciais s
 - A API deve escutar em `0.0.0.0` para funcionar em containers e no Railway.
 - O frontend deve acessar a API pelo proxy `/api`.
 - Rotas protegidas retornam `401` sem sessao e `403` quando o perfil nao possui permissao.
-- A criacao de contas e restrita ao perfil `admin`.
+- Admins podem criar operadores e gerentes; gerentes podem criar apenas operadores.
+- O reset de senha usa tokens hash de uso unico, com validade de 30 minutos; o token de desenvolvimento e retornado no header `X-Password-Reset-Token` e nunca e retornado em producao.

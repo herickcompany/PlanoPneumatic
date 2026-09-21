@@ -1,0 +1,93 @@
+openapi: 3.0.3
+info:
+  title: Plano Pneumatic API
+  version: 1.0.0
+  description: API operacional para processos, usuários, relatórios e integrações.
+servers:
+  - url: https://planopneumaticapi-production.up.railway.app
+  - url: http://localhost:3000
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+  schemas:
+    Case:
+      type: object
+      properties:
+        id: { type: string }
+        client: { type: string }
+        type: { type: string, enum: [Pedido de venda, Base de troca, Garantia] }
+        status: { type: string }
+        responsible: { type: string }
+        product: { type: string }
+        productCode: { type: string }
+        quantity: { type: integer }
+paths:
+  /health:
+    get:
+      summary: Health check da API
+      responses:
+        '200': { description: API e banco disponíveis }
+  /api/auth/login:
+    post:
+      summary: Autenticar usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        '200': { description: Sessão criada }
+        '401': { description: Credenciais inválidas }
+  /api/cases:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Pesquisar processos
+      parameters:
+        - { name: process, in: query, schema: { type: string } }
+        - { name: client, in: query, schema: { type: string } }
+        - { name: productCode, in: query, schema: { type: string } }
+        - { name: document, in: query, schema: { type: string } }
+      responses:
+        '200': { description: Lista de processos }
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Criar processo
+      responses:
+        '201': { description: Processo criado }
+  /api/cases/import:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Importar até 500 processos
+      responses:
+        '201': { description: Resultado por linha }
+  /api/reports/summary:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Relatórios operacionais
+      responses:
+        '200': { description: Totais, produtividade, SLA e processos parados }
+  /api/reports/export.csv:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Exportar processos para Excel/CSV
+      responses:
+        '200': { description: Arquivo CSV }
+  /api/integrations/webhooks:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Listar webhooks
+      responses:
+        '200': { description: Webhooks configurados }
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Configurar webhook
+      responses:
+        '201': { description: Webhook criado }

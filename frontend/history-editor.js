@@ -2,6 +2,8 @@
   const sessionKey = "plano-pneumatic-session";
   const managementPanel = document.querySelector("#management-panel");
   if (!managementPanel) return;
+  const apiOrigin = window.location.hostname === "planopneumatic-production.up.railway.app" ? "https://planopneumaticapi-production.up.railway.app" : window.location.origin;
+  function apiUrl(url) { return new URL(url, apiOrigin).toString(); }
 
   function session() {
     try { return JSON.parse(localStorage.getItem(sessionKey)); } catch { return null; }
@@ -10,7 +12,7 @@
   async function request(url, options = {}) {
     const current = session();
     if (!current?.token) { window.location.href = "/"; return null; }
-    const response = await fetch(url, { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${current.token}`, ...(options.headers || {}) } });
+    const response = await fetch(apiUrl(url), { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${current.token}`, ...(options.headers || {}) } });
     if (response.status === 401) { localStorage.removeItem(sessionKey); window.location.href = "/"; return null; }
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: "Nao foi possivel concluir a operacao." }));

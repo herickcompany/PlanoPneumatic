@@ -7,14 +7,17 @@ const searchForm = document.querySelector("#search-form");
 const historyBody = document.querySelector("#history-body");
 const managementPanel = document.querySelector("#management-panel");
 const resultCount = document.querySelector("#result-count");
+const apiOrigin = window.location.hostname === "planopneumatic-production.up.railway.app" ? "https://planopneumaticapi-production.up.railway.app" : window.location.origin;
+function apiUrl(url) { return new URL(url, apiOrigin).toString(); }
 
 function getSession() { try { return JSON.parse(localStorage.getItem(sessionKey)); } catch { return null; } }
 async function api(url, options = {}) {
   const session = getSession();
   if (!session?.token) { window.location.href = "/"; return null; }
-  const response = await fetch(url, { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}`, ...(options.headers || {}) } });
+  let response;
+  try { response = await fetch(apiUrl(url), { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}`, ...(options.headers || {}) } }); } catch { throw new Error("A API está indisponível no momento. Tente novamente em instantes."); }
   if (response.status === 401) { localStorage.removeItem(sessionKey); window.location.href = "/"; return null; }
-  if (!response.ok) { const error = await response.json().catch(() => ({ message: "Nao foi possivel concluir a operacao." })); throw new Error(error.message); }
+  if (!response.ok) { const error = await response.json().catch(() => ({ message: "Não foi possível concluir esta operação." })); throw new Error(error.message); }
   return response.status === 204 ? null : response.json();
 }
 function fillProfile(user) { document.querySelector("#profile-name").textContent = user.name; document.querySelector("#profile-role").textContent = user.role === "admin" ? "Administrador" : user.role; document.querySelector("#profile-initials").textContent = user.name.split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase(); }

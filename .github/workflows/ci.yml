@@ -1,0 +1,42 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: node --check backend/server.js
+      - run: node --check backend/db.js
+      - run: docker compose config --quiet
+      - run: docker build -f Dockerfile -t planopneumatic-api:${{ github.sha }} .
+      - run: docker build -f Dockerfile.frontend -t planopneumatic-frontend:${{ github.sha }} .
+      - run: git diff --check
+
+  deploy-production:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy with Railway CLI
+        uses: bervProject/railway-deploy@v0.1.2
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: ${{ secrets.RAILWAY_API_SERVICE }}
+      - name: Deploy frontend with Railway CLI
+        uses: bervProject/railway-deploy@v0.1.2
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: ${{ secrets.RAILWAY_FRONTEND_SERVICE }}

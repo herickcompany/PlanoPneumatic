@@ -32,7 +32,7 @@ services:
         condition: service_healthy
     expose: ["3000"]
     healthcheck:
-      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:3000/health"]
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:3000/health/db"]
       interval: 10s
       timeout: 5s
       retries: 5
