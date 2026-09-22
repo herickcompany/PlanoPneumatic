@@ -518,6 +518,39 @@
     }
 }
 
+@media (max-width: 760px) {
+    .login-layout {
+        display: block;
+        min-height: auto;
+    }
+
+    .login-visual {
+        min-height: auto;
+        padding: 28px 24px;
+    }
+
+    .login-visual::after {
+        display: none;
+    }
+
+    .visual-copy h1 {
+        font-size: 30px;
+        margin: 0 0 12px;
+    }
+
+    .visual-copy p:not(.eyebrow) {
+        font-size: 14px;
+    }
+
+    .visual-footer {
+        margin-top: 20px;
+    }
+
+    .login-panel {
+        padding: 32px 22px;
+    }
+}
+
 @media (min-width: 961px) and (max-width: 1180px) {
     .indicator-grid {
         grid-template-columns: repeat(3, 1fr);
