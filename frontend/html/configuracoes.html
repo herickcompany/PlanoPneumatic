@@ -4,18 +4,24 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Plano Pneumatic | Minha conta</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <title>Plano Pneumatic | Configurações</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#092d57" />
+    <link rel="icon" href="/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/admin.css" />
 </head>
 
 <body>
-    <main class="dashboard-layout" data-admin-page="account">
+    <main class="dashboard-layout" data-admin-page="settings">
         <aside class="sidebar">
             <div class="brand brand-sidebar"><img src="/logo.png" alt="Plano Pneumatic" /><span>OPERAÇÃO</span></div>
             <nav class="nav"><a class="nav-link" href="/"><span>▦</span> Dashboard</a><a class="nav-link"
                     href="/triagem.html"><span>◎</span> Triagem</a><a class="nav-link"
                     href="/pendencias.html"><span>!</span> Pendências</a><a class="nav-link"
-                    href="/configuracoes.html"><span>⚙</span> Configurações</a><a class="nav-link active"
+                    href="/cadastros.html"><span>♙</span> Cadastros</a><a class="nav-link active"
+                    href="/configuracoes.html"><span>⚙</span> Configurações</a><a class="nav-link"
                     href="/conta.html"><span>◉</span> Minha conta</a></nav>
             <div class="sidebar-bottom">
                 <div class="profile-mini"><span id="profile-initials">--</span>
@@ -26,16 +32,18 @@
         <div class="dashboard-content admin-content">
             <header class="topbar">
                 <div>
-                    <p class="eyebrow">Perfil e segurança</p>
-                    <h1>Configurações da conta</h1>
-                </div><a class="back-link" href="/">← Dashboard</a>
+                    <p class="eyebrow">Administração</p>
+                    <h1>Configurações</h1>
+                </div>
+                <div class="topbar-actions"><a class="button button-secondary compact-button"
+                        href="/cadastros.html">Criar conta <span>+</span></a><a class="back-link" href="/">←
+                        Dashboard</a></div>
             </header>
-            <div id="page-content" class="admin-page-content">
-                <p class="muted">Carregando conta...</p>
-            </div>
+            <div id="page-content" class="admin-page-content"></div>
         </div>
     </main>
-    <script src="/admin-page.js" defer></script>
+    <script src="/js/pwa.js" defer></script>
+    <script src="/js/admin-page.js" defer></script>
 </body>
 
 </html>

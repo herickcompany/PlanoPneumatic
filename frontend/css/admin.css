@@ -1,0 +1,143 @@
+.admin-content {
+    max-width: 1280px;
+}
+
+.admin-page-content {
+    margin-top: 28px;
+}
+
+.create-user-form {
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+}
+
+.create-user-form .form-actions {
+    margin-top: 8px;
+}
+
+.report-cards {
+    margin-bottom: 20px;
+}
+
+.report-grid {
+    margin-top: 0;
+}
+
+.team-performance-grid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    margin-top: 0;
+}
+
+.report-tabs {
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    gap: 6px;
+    margin: 20px 0 4px;
+}
+
+.report-tab {
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 10px 6px;
+    text-decoration: none;
+}
+
+.report-tab:hover,
+.report-tab.active {
+    border-bottom-color: var(--blue);
+    color: var(--navy);
+}
+
+.report-bars {
+    display: grid;
+    gap: 18px;
+    padding-top: 12px;
+}
+
+.report-bar {
+    display: grid;
+    gap: 7px;
+}
+
+.report-bar>div {
+    display: flex;
+    justify-content: space-between;
+}
+
+.report-bar strong,
+.report-bar span {
+    color: var(--navy);
+    font-size: 12px;
+}
+
+.report-bar i {
+    background: var(--blue);
+    border-radius: 4px;
+    display: block;
+    height: 9px;
+    min-width: 10%;
+}
+
+.event-list {
+    display: grid;
+    gap: 12px;
+}
+
+.setting-row {
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    padding: 18px 0;
+}
+
+.setting-row span {
+    display: grid;
+    gap: 3px;
+}
+
+.setting-row strong {
+    color: var(--navy);
+    font-size: 12px;
+}
+
+.setting-row small {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.setting-row input {
+    accent-color: var(--blue);
+    height: 18px;
+    width: 18px;
+}
+
+.settings-grid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: 1.2fr .8fr;
+}
+
+.status-reference {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 22px 0;
+}
+
+.account-panel {
+    max-width: 620px;
+}
+
+.account-form {
+    margin-top: 24px;
+}
+
+.success-feedback {
+    color: var(--green);
+}

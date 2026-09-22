@@ -85,6 +85,7 @@ app.use((request, response, next) => {
 });
 app.use(express.json());
 app.use(express.static(frontendDirectory));
+app.use(express.static(path.join(frontendDirectory, "html")));
 app.get("/api/openapi.yaml", (request, response) => response.type("text/yaml").send(fs.readFileSync(path.join(__dirname, "..", "docs", "openapi.yaml"), "utf8")));
 
 app.get(["/health", "/api/health"], async (request, response) => {
@@ -585,7 +586,7 @@ app.get("/api/search", requireAuth, async (request, response, next) => {
 app.patch("/api/account", requireAuth, async (request, response, next) => { try { const name = String(request.body.name || "").trim(); const password = String(request.body.password || ""); if (!name) return response.status(400).json({ message: "Informe seu nome." }); if (password) await database.query("UPDATE users SET name = $1, password_hash = $2 WHERE id = $3", [name, bcrypt.hashSync(password, 12), request.user.id]); else await database.query("UPDATE users SET name = $1 WHERE id = $2", [name, request.user.id]); const { rows } = await database.query("SELECT id, name, email, role FROM users WHERE id = $1", [request.user.id]); return response.json({ user: rows[0] }); } catch (error) { return next(error); } });
 
 app.use((error, request, response, next) => { logEvent("http_error", { method: request.method, path: request.path, error: error.message }); return response.status(500).json({ message: "Erro interno do servidor." }); });
-app.get("*", (request, response) => response.sendFile(path.join(frontendDirectory, "index.html")));
+app.get("*", (request, response) => response.sendFile(path.join(frontendDirectory, "html", "index.html")));
 
 async function start() {
 	await initializeDatabase();

@@ -1,0 +1,37 @@
+.process-content {
+    width: 100%;
+}
+
+.process-intro {
+    align-items: center;
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+    margin: 28px 0 20px;
+}
+
+.process-intro p {
+    margin: 0;
+    max-width: 680px;
+}
+
+.process-status {
+    background: var(--orange-soft);
+    border-radius: 99px;
+    color: var(--orange);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 7px 11px;
+}
+
+.process-form {
+    display: grid;
+    gap: 18px;
+}
+
+@media (max-width: 760px) {
+    .process-intro {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

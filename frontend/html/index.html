@@ -4,7 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Plano Pneumatic | Operacao</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#092d57" />
+    <link rel="icon" href="/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/dashboard.css" />
   </head>
   <body>
     <main id="app" class="shell">
@@ -38,6 +43,13 @@
               <button class="button button-primary" type="submit">Entrar <span aria-hidden="true">→</span></button>
               <p id="login-feedback" class="feedback" role="alert"></p>
             </form>
+            <div id="pwa-install-block" class="pwa-install-block hidden">
+              <div>
+                <strong>Instale o aplicativo</strong>
+                <p class="muted">Acesse o Plano Pneumatic direto do seu tablet ou desktop, sem precisar do navegador.</p>
+              </div>
+              <button id="pwa-install-button" class="button button-secondary" type="button">Baixar aplicativo <span aria-hidden="true">↓</span></button>
+            </div>
           </div>
         </section>
       </section>
@@ -87,7 +99,8 @@
     <div id="detail-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
       <div class="modal-card detail-card"><div class="panel-heading"><div><p class="eyebrow">Detalhes do processo</p><h2 id="detail-modal-title">Processo</h2></div><button id="close-detail-modal" class="close-button" type="button" aria-label="Fechar">×</button></div><div id="case-detail-content" class="detail-content"></div></div>
     </div>
-    <script src="/case-editor.js" defer></script>
-    <script src="/app.js" defer></script>
+    <script src="/js/pwa.js" defer></script>
+    <script src="/js/case-editor.js" defer></script>
+    <script src="/js/app.js" defer></script>
   </body>
 </html>

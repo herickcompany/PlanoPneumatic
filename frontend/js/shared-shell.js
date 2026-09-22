@@ -87,6 +87,22 @@
     window.scrollTo(0, Number(sessionStorage.getItem(`scroll:${path}`) || 0));
   }
 
+  function syncStylesheets(nextDocument) {
+    const nextHrefs = new Set([...nextDocument.querySelectorAll('link[rel="stylesheet"]')].map((link) => link.getAttribute("href")));
+    document.querySelectorAll('head link[rel="stylesheet"]').forEach((link) => {
+      const href = link.getAttribute("href");
+      if (href && !nextHrefs.has(href)) link.remove();
+    });
+    const currentHrefs = new Set([...document.querySelectorAll('head link[rel="stylesheet"]')].map((link) => link.getAttribute("href")));
+    nextHrefs.forEach((href) => {
+      if (!href || currentHrefs.has(href)) return;
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      document.head.appendChild(link);
+    });
+  }
+
   async function navigate(href, pushState = true) {
     const currentPath = window.location.pathname === "/" ? "/" : window.location.pathname.replace(/\/$/, "");
     const targetPath = new URL(href, window.location.origin).pathname.replace(/\/$/, "") || "/";
@@ -114,6 +130,7 @@
         [...currentLayout.attributes].forEach((attr) => { if (!nextLayout.hasAttribute(attr.name)) currentLayout.removeAttribute(attr.name); });
         [...nextLayout.attributes].forEach((attr) => currentLayout.setAttribute(attr.name, attr.value));
       }
+      syncStylesheets(nextDocument);
       currentContent.replaceWith(nextContent.cloneNode(true));
       document.title = nextDocument.title;
       if (pushState) window.history.pushState({}, "", href);

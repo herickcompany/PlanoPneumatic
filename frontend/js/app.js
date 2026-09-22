@@ -1,5 +1,5 @@
 const sharedShellScript = document.createElement("script");
-sharedShellScript.src = "/shared-shell.js";
+sharedShellScript.src = "/js/shared-shell.js";
 document.head.appendChild(sharedShellScript);
 
 const sessionKey = "plano-pneumatic-session";
@@ -188,6 +188,27 @@ document.querySelector("#logout-button").addEventListener("click", async () => {
 document.querySelector("#close-detail-modal").addEventListener("click", () => detailModal.classList.add("hidden"));
 detailModal.addEventListener("click", (event) => {
   if (event.target === detailModal) detailModal.classList.add("hidden");
+});
+
+const pwaInstallBlock = document.querySelector("#pwa-install-block");
+const pwaInstallButton = document.querySelector("#pwa-install-button");
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+function refreshInstallBlock() {
+  if (isStandalone) return pwaInstallBlock?.classList.add("hidden");
+  pwaInstallBlock?.classList.toggle("hidden", !window.__pwaInstallPrompt);
+}
+refreshInstallBlock();
+window.addEventListener("pwa-install-available", refreshInstallBlock);
+window.addEventListener("pwa-installed", refreshInstallBlock);
+pwaInstallButton?.addEventListener("click", async () => {
+  const promptEvent = window.__pwaInstallPrompt;
+  if (!promptEvent) return;
+  pwaInstallButton.disabled = true;
+  promptEvent.prompt();
+  await promptEvent.userChoice;
+  window.__pwaInstallPrompt = null;
+  pwaInstallButton.disabled = false;
+  refreshInstallBlock();
 });
 
 (async function bootstrap() {

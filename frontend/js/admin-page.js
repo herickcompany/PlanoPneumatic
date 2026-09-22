@@ -1,5 +1,5 @@
 const sharedShellScript = document.createElement("script");
-sharedShellScript.src = "/shared-shell.js";
+sharedShellScript.src = "/js/shared-shell.js";
 document.head.appendChild(sharedShellScript);
 
 const sessionKey = "plano-pneumatic-session";

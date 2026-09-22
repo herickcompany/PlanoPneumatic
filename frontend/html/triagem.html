@@ -4,7 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Plano Pneumatic | Nova triagem</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#092d57" />
+    <link rel="icon" href="/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/triagem.css" />
   </head>
   <body>
     <main class="dashboard-layout" data-triage-page>
@@ -34,6 +39,7 @@
         </form><aside class="triage-summary"><div class="summary-sticky"><p class="eyebrow">Resumo do cadastro</p><h2 id="summary-type">Tipo não definido</h2><div class="summary-status"><span class="summary-dot"></span><span id="summary-stage">Triagem em andamento</span></div><dl><div><dt>Cliente</dt><dd id="summary-client">Aguardando preenchimento</dd></div><div><dt>Produto</dt><dd id="summary-product">Aguardando preenchimento</dd></div><div><dt>Código</dt><dd id="summary-code">Aguardando preenchimento</dd></div><div><dt>Quantidade</dt><dd id="summary-quantity">1 unidade</dd></div></dl><div class="summary-next"><strong>Próximo passo</strong><p id="summary-next-text">Selecione o tipo da demanda para iniciar.</p></div></div></aside></div>
       </div>
     </main>
-    <script src="/triagem.js" defer></script>
+    <script src="/js/pwa.js" defer></script>
+    <script src="/js/triagem.js" defer></script>
   </body>
 </html>
