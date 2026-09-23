@@ -178,88 +178,6 @@
     font-size: 12px;
 }
 
-.indicator-grid {
-    display: grid;
-    gap: 14px;
-    grid-template-columns: repeat(4, 1fr);
-}
-
-.indicator-card {
-    background: var(--white);
-    border: 1px solid var(--line);
-    border-top: 3px solid var(--blue);
-    border-radius: 8px;
-    box-shadow: 0 5px 15px rgba(16, 45, 78, .035);
-    padding: 17px;
-}
-
-.indicator-card.orange {
-    border-top-color: var(--orange);
-}
-
-.indicator-card.red {
-    border-top-color: var(--red);
-}
-
-.indicator-card.green {
-    border-top-color: var(--green);
-}
-
-.indicator-top {
-    align-items: center;
-    color: var(--muted);
-    display: flex;
-    font-size: 12px;
-    justify-content: space-between;
-}
-
-.indicator-mark {
-    align-items: center;
-    background: #e5eff8;
-    border-radius: 50%;
-    color: var(--blue);
-    display: flex;
-    font-weight: 800;
-    height: 23px;
-    justify-content: center;
-    width: 23px;
-}
-
-.orange .indicator-mark {
-    background: var(--orange-soft);
-    color: var(--orange);
-}
-
-.red .indicator-mark {
-    background: var(--red-soft);
-    color: var(--red);
-}
-
-.green .indicator-mark {
-    background: var(--green-soft);
-    color: var(--green);
-}
-
-.indicator-card strong {
-    color: var(--navy);
-    display: block;
-    font-size: 30px;
-    letter-spacing: -.06em;
-    margin-top: 12px;
-}
-
-.indicator-card small {
-    color: var(--muted);
-    font-size: 10px;
-}
-
-.content-grid {
-    display: grid;
-    gap: 18px;
-    grid-template-columns: minmax(0, 1.7fr) minmax(280px, .8fr);
-    margin-top: 22px;
-}
-
 .attention-panel {
     background: #fbfcfd;
 }
@@ -508,14 +426,6 @@
     .visual-copy h1 {
         font-size: 42px;
     }
-
-    .indicator-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .content-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
 @media (max-width: 760px) {
@@ -551,16 +461,6 @@
     }
 }
 
-@media (min-width: 961px) and (max-width: 1180px) {
-    .indicator-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-
-    .content-grid {
-        grid-template-columns: minmax(0, 1.4fr) minmax(260px, .9fr);
-    }
-}
-
 @media (pointer: coarse) and (min-width: 681px) {
     .icon-button {
         height: 42px;
@@ -576,18 +476,6 @@
 
     .welcome-row .button {
         padding: 11px;
-    }
-
-    .indicator-grid {
-        gap: 8px;
-    }
-
-    .indicator-card {
-        padding: 12px;
-    }
-
-    .indicator-card strong {
-        font-size: 25px;
     }
 
     .pwa-install-block {
