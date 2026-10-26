@@ -10,6 +10,7 @@ const feedback = document.querySelector("#login-feedback");
 const detailModal = document.querySelector("#detail-modal");
 const apiOrigin = window.location.hostname === "planopneumatic-production.up.railway.app" ? "https://planopneumaticapi-production.up.railway.app" : window.location.origin;
 function apiUrl(url) { return new URL(url, apiOrigin).toString(); }
+function esc(value) { return String(value == null ? "" : value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character])); }
 
 function getSession() {
   try {
@@ -77,7 +78,7 @@ function renderDashboard(data) {
   `).join("");
 
   document.querySelector("#cases-body").innerHTML = data.recentCases.map((item) => `
-    <tr class="case-row" data-case-number="${item.id}"><td><strong>${item.id}</strong></td><td>${item.client}</td><td>${item.type}</td><td><span class="table-status ${statusTone(item.status)}">${item.status}</span></td><td class="muted">${item.updatedAt}</td></tr>
+    <tr class="case-row" data-case-number="${esc(item.id)}"><td><strong>${esc(item.id)}</strong></td><td>${esc(item.client)}</td><td>${esc(item.type)}</td><td><span class="table-status ${statusTone(item.status)}">${esc(item.status)}</span></td><td class="muted">${esc(item.updatedAt)}</td></tr>
   `).join("");
   document.querySelectorAll(".case-row").forEach((row) => row.addEventListener("click", () => openCaseDetail(row.dataset.caseNumber)));
   renderInsights(data);
@@ -86,12 +87,12 @@ function renderDashboard(data) {
 function renderInsights(data) {
   document.querySelector("#comparison-grid").innerHTML = `<div><span>Abertos</span><strong>${data.comparison.openCases}</strong></div><div><span>Concluídos</span><strong>${data.comparison.completed}</strong></div>`;
   const maxType = Math.max(...data.byType.map((item) => item.value), 1);
-  document.querySelector("#type-chart").innerHTML = data.byType.map((item) => `<div class="distribution-row"><div><strong>${item.label}</strong><span>${item.value}</span></div><i style="width:${Math.max(8, item.value / maxType * 100)}%"></i></div>`).join("") || '<p class="muted">Sem dados no período.</p>';
+  document.querySelector("#type-chart").innerHTML = data.byType.map((item) => `<div class="distribution-row"><div><strong>${esc(item.label)}</strong><span>${esc(item.value)}</span></div><i style="width:${Math.max(8, item.value / maxType * 100)}%"></i></div>`).join("") || '<p class="muted">Sem dados no período.</p>';
   const maxEvolution = Math.max(...data.evolution.map((item) => item.total), 1);
-  document.querySelector("#evolution-chart").innerHTML = data.evolution.map((item) => `<div class="chart-column" title="${item.date}: ${item.total} processos"><span style="height:${Math.max(8, item.total / maxEvolution * 100)}%"></span><small>${String(item.date).slice(5)}</small></div>`).join("") || '<p class="muted">Sem dados no período.</p>';
+  document.querySelector("#evolution-chart").innerHTML = data.evolution.map((item) => `<div class="chart-column" title="${esc(item.date)}: ${esc(item.total)} processos"><span style="height:${Math.max(8, item.total / maxEvolution * 100)}%"></span><small>${esc(String(item.date).slice(5))}</small></div>`).join("") || '<p class="muted">Sem dados no período.</p>';
   const alertList = document.querySelector("#alert-list");
   document.querySelector("#alert-count").textContent = `${data.alerts.length} alertas`;
-  alertList.innerHTML = data.alerts.map((item) => `<button class="alert-row" type="button" data-case-number="${item.id}"><strong>${item.id}</strong><span>${item.client}</span><small>${item.status} · ${item.updatedAt}</small></button>`).join("") || '<p class="muted">Nenhum processo atrasado no período.</p>';
+  alertList.innerHTML = data.alerts.map((item) => `<button class="alert-row" type="button" data-case-number="${esc(item.id)}"><strong>${esc(item.id)}</strong><span>${esc(item.client)}</span><small>${esc(item.status)} · ${esc(item.updatedAt)}</small></button>`).join("") || '<p class="muted">Nenhum processo atrasado no período.</p>';
   alertList.querySelectorAll("[data-case-number]").forEach((item) => item.addEventListener("click", () => openCaseDetail(item.dataset.caseNumber)));
 }
 
@@ -106,7 +107,7 @@ function dashboardQuery() {
 function renderAttention(items) {
   const actionList = document.querySelector("#action-list");
   if (!actionList) return;
-  actionList.innerHTML = items.slice(0, 5).map((item) => `<li class="action-item" data-case-number="${item.id}"><span class="action-icon ${item.risk === "Alto" ? "red" : "orange"}">${item.risk === "Alto" ? "!" : "◷"}</span><div><strong>${item.id} · ${item.description}</strong><small>${item.client} · ${item.responsible}</small></div><span>→</span></li>`).join("") || `<li class="empty-action">Nenhuma proxima acao no seu escopo.</li>`;
+  actionList.innerHTML = items.slice(0, 5).map((item) => `<li class="action-item" data-case-number="${esc(item.id)}"><span class="action-icon ${item.risk === "Alto" ? "red" : "orange"}">${item.risk === "Alto" ? "!" : "◷"}</span><div><strong>${esc(item.id)} · ${esc(item.description)}</strong><small>${esc(item.client)} · ${esc(item.responsible)}</small></div><span>→</span></li>`).join("") || `<li class="empty-action">Nenhuma proxima acao no seu escopo.</li>`;
   actionList.querySelectorAll("[data-case-number]").forEach((item) => item.addEventListener("click", () => openCaseDetail(item.dataset.caseNumber)));
 }
 
@@ -117,7 +118,7 @@ async function openCaseDetail(caseNumber) {
   detailModal.classList.remove("hidden");
   try {
     const data = await apiRequest(`/api/cases/${encodeURIComponent(caseNumber)}`);
-    detailContent.innerHTML = `<div class="detail-actions"><button id="edit-dashboard-case" class="button button-secondary" type="button">Editar processo <span>✎</span></button></div><div class="detail-grid"><div><small>Cliente</small><strong>${data.case.client}</strong></div><div><small>Tipo</small><strong>${data.case.type}</strong></div><div><small>Produto</small><strong>${data.case.product}</strong></div><div><small>Código</small><strong>${data.case.productCode}</strong></div><div><small>Quantidade</small><strong>${data.case.quantity}</strong></div><div><small>Responsável</small><strong>${data.case.responsible}</strong></div></div><div class="detail-section"><p class="eyebrow">Histórico</p>${data.case.events.map((event) => `<div class="event"><span>${event.type}</span><div><strong>${event.description}</strong><small>${event.responsible} · ${event.createdAt}</small></div></div>`).join("")}</div>`;
+    detailContent.innerHTML = `<div class="detail-actions"><button id="edit-dashboard-case" class="button button-secondary" type="button">Editar processo <span>✎</span></button></div><div class="detail-grid"><div><small>Cliente</small><strong>${esc(data.case.client)}</strong></div><div><small>Tipo</small><strong>${esc(data.case.type)}</strong></div><div><small>Produto</small><strong>${esc(data.case.product)}</strong></div><div><small>Código</small><strong>${esc(data.case.productCode)}</strong></div><div><small>Quantidade</small><strong>${esc(data.case.quantity)}</strong></div><div><small>Responsável</small><strong>${esc(data.case.responsible)}</strong></div></div><div class="detail-section"><p class="eyebrow">Histórico</p>${data.case.events.map((event) => `<div class="event"><span>${esc(event.type)}</span><div><strong>${esc(event.description)}</strong><small>${esc(event.responsible)} · ${esc(event.createdAt)}</small></div></div>`).join("")}</div>`;
     document.querySelector("#edit-dashboard-case").addEventListener("click", () => window.caseEditor.open(data.case, apiRequest, () => openCaseDetail(caseNumber)));
   } catch (error) {
     detailContent.innerHTML = `<p class="feedback">${error.message}</p>`;

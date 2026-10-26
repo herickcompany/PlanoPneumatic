@@ -43,8 +43,9 @@ async function dispatchWebhook(event, payload) {
 		const body = JSON.stringify({ event, payload, sentAt: new Date().toISOString() });
 		const signature = crypto.createHmac("sha256", webhook.secret).update(body).digest("hex");
 		try {
+			const target = new URL(webhook.endpoint_url);
+			if (isPrivateHost(target.hostname)) { logEvent("webhook_blocked_private_host", { endpoint: webhook.endpoint_url }); continue; }
 			await new Promise((resolve, reject) => {
-				const target = new URL(webhook.endpoint_url);
 				const request = https.request({ hostname: target.hostname, port: target.port || 443, path: `${target.pathname}${target.search}`, method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body), "X-Webhook-Signature": signature } }, (response) => { response.resume(); response.on("end", resolve); });
 				request.on("error", reject); request.setTimeout(5000, () => request.destroy(new Error("Webhook timeout"))); request.end(body);
 			});
@@ -74,6 +75,57 @@ function assertProductionSecrets() {
 }
 
 assertProductionSecrets();
+
+// Hash fixo usado para igualar o tempo de resposta quando o usuario nao existe (evita enumeracao por timing).
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("invalid-placeholder-password", 12);
+
+// Headers de seguranca (defesa extra, invisivel para o uso normal).
+const contentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://planopneumaticapi-production.up.railway.app; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
+app.use((request, response, next) => {
+	response.setHeader("X-Content-Type-Options", "nosniff");
+	response.setHeader("X-Frame-Options", "DENY");
+	response.setHeader("Referrer-Policy", "no-referrer");
+	response.setHeader("X-XSS-Protection", "0");
+	response.setHeader("Content-Security-Policy", contentSecurityPolicy);
+	return next();
+});
+
+// Limite de tentativas em memoria (generoso: so pega abuso/brute force, usuario normal nunca encosta).
+const rateBuckets = new Map();
+function rateLimit({ windowMs, max }) {
+	return (request, response, next) => {
+		const ip = String(request.headers["x-real-ip"] || request.headers["x-forwarded-for"] || request.socket.remoteAddress || "").split(",")[0].trim();
+		const key = `${request.path}:${ip}`;
+		const now = Date.now();
+		const hits = (rateBuckets.get(key) || []).filter((timestamp) => now - timestamp < windowMs);
+		if (hits.length >= max) {
+			response.setHeader("Retry-After", String(Math.ceil(windowMs / 1000)));
+			return response.status(429).json({ message: "Muitas tentativas. Aguarde alguns minutos e tente novamente." });
+		}
+		hits.push(now);
+		rateBuckets.set(key, hits);
+		return next();
+	};
+}
+const cleanupTimer = setInterval(() => {
+	const now = Date.now();
+	for (const [key, timestamps] of rateBuckets) {
+		const kept = timestamps.filter((timestamp) => now - timestamp < 3600000);
+		if (kept.length) rateBuckets.set(key, kept); else rateBuckets.delete(key);
+	}
+}, 600000);
+if (typeof cleanupTimer.unref === "function") cleanupTimer.unref();
+
+// Bloqueia envio de webhook para hosts internos (mitiga SSRF). Nota: nao resolve DNS, cobre apenas IPs/hostnames literais.
+function isPrivateHost(hostname) {
+	const host = String(hostname || "").toLowerCase();
+	if (!host || host === "localhost" || host.endsWith(".localhost")) return true;
+	if (/^(127\.|10\.|192\.168\.|169\.254\.|0\.0\.0\.0|::1|\[::1\])/.test(host)) return true;
+	const match = host.match(/^172\.(\d{1,3})\./);
+	if (match && Number(match[1]) >= 16 && Number(match[1]) <= 31) return true;
+	return false;
+}
+
 app.use((request, response, next) => {
 	const origin = request.get("origin");
 	if (origin === frontendOrigin) response.setHeader("Access-Control-Allow-Origin", origin);
@@ -113,8 +165,8 @@ async function requireAuth(request, response, next) { try { const user = await g
 function canViewCase(user, item) { return hasRole(user, broadVisibilityRoles) || item.created_by === user.id || item.assigned_to === user.id; }
 function formatCase(item) { return { id: item.case_number, client: item.client, type: item.type, status: item.status, responsible: item.responsible, clientDocument: item.client_document || "", product: item.product || "Nao informado", productCode: item.product_code || "Nao informado", quantity: item.quantity || 0, documentReference: item.document_reference || "", notes: item.notes || "", updatedAt: new Date(item.updated_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) }; }
 
-app.post("/api/auth/login", async (request, response, next) => { try { const email = String(request.body.email || "").trim().toLowerCase(); const password = String(request.body.password || ""); if (!email || !password) return response.status(400).json({ message: "Informe usuario e senha." }); const { rows } = await database.query("SELECT id, name, email, password_hash, role FROM users WHERE email = $1 AND active = TRUE", [email]); const user = rows[0]; if (!user || !bcrypt.compareSync(password, user.password_hash)) return response.status(401).json({ message: "Usuario ou senha invalidos." }); return response.json({ ...(await createSession(user.id)), user: { id: user.id, name: user.name, email: user.email, role: user.role } }); } catch (error) { return next(error); } });
-app.post("/api/auth/forgot-password", async (request, response, next) => {
+app.post("/api/auth/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }), async (request, response, next) => { try { const email = String(request.body.email || "").trim().toLowerCase(); const password = String(request.body.password || ""); if (!email || !password) return response.status(400).json({ message: "Informe usuario e senha." }); const { rows } = await database.query("SELECT id, name, email, password_hash, role FROM users WHERE email = $1 AND active = TRUE", [email]); const user = rows[0]; if (!user) { await bcrypt.compare(password, DUMMY_PASSWORD_HASH); return response.status(401).json({ message: "Usuario ou senha invalidos." }); } if (!(await bcrypt.compare(password, user.password_hash))) return response.status(401).json({ message: "Usuario ou senha invalidos." }); return response.json({ ...(await createSession(user.id)), user: { id: user.id, name: user.name, email: user.email, role: user.role } }); } catch (error) { return next(error); } });
+app.post("/api/auth/forgot-password", rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }), async (request, response, next) => {
 	try {
 		const email = String(request.body.email || "").trim().toLowerCase();
 		if (email) {
@@ -123,7 +175,7 @@ app.post("/api/auth/forgot-password", async (request, response, next) => {
 				const token = crypto.randomBytes(32).toString("hex");
 				await database.query("DELETE FROM password_reset_tokens WHERE user_id = $1 OR expires_at <= NOW()", [rows[0].id]);
 				await database.query("INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 minutes')", [rows[0].id, hashToken(token)]);
-				if (process.env.NODE_ENV !== "production") response.setHeader("X-Password-Reset-Token", token);
+					if (process.env.NODE_ENV !== "production") logEvent("password_reset_token_dev", { userId: rows[0].id, token });
 			}
 		}
 		return response.json({ message: "Se o e-mail estiver cadastrado, enviaremos instrucoes para redefinir a senha." });
@@ -136,7 +188,7 @@ app.post("/api/auth/reset-password", async (request, response, next) => {
 		if (!token || password.length < 8) return response.status(400).json({ message: "Informe um token valido e uma senha com pelo menos 8 caracteres." });
 		const { rows } = await database.query("SELECT user_id FROM password_reset_tokens WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()", [hashToken(token)]);
 		if (!rows[0]) return response.status(400).json({ message: "Token invalido ou expirado." });
-		await database.query("UPDATE users SET password_hash = $1 WHERE id = $2", [bcrypt.hashSync(password, 12), rows[0].user_id]);
+		await database.query("UPDATE users SET password_hash = $1 WHERE id = $2", [await bcrypt.hash(password, 12), rows[0].user_id]);
 		await database.query("UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = $1", [hashToken(token)]);
 		await database.query("DELETE FROM sessions WHERE user_id = $1", [rows[0].user_id]);
 		return response.json({ message: "Senha redefinida com sucesso." });
@@ -249,7 +301,7 @@ app.post("/api/cases/:caseNumber/attachments", requireAuth, async (request, resp
 		const fileName = String(request.body.fileName || "").trim();
 		const fileUrl = String(request.body.fileUrl || "").trim();
 		if (!item) return response.status(404).json({ message: "Processo nao encontrado." });
-		if (!fileName || !fileUrl || fileUrl.length > 2048) return response.status(400).json({ message: "Informe o nome e a referencia do documento." });
+		if (!fileName || !fileUrl || fileUrl.length > 2048 || !/^https?:\/\//i.test(fileUrl)) return response.status(400).json({ message: "Informe o nome e uma referencia de documento com link http(s) valido." });
 		const { rows } = await database.query("INSERT INTO case_attachments (case_id, uploaded_by, file_name, file_url) VALUES ($1, $2, $3, $4) RETURNING id, file_name AS \"fileName\", file_url AS \"fileUrl\", created_at AS \"createdAt\"", [item.id, request.user.id, fileName, fileUrl]);
 		return response.status(201).json({ attachment: rows[0] });
 	} catch (error) { return next(error); }
@@ -411,6 +463,7 @@ app.get("/api/reports/manager-performance", requireAuth, requireCapability(capab
 });
 
 function csvCell(value) { return `"${String(value ?? "").replace(/"/g, '""')}"`; }
+function htmlCell(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character])); }
 app.get("/api/reports/export.csv", requireAuth, async (request, response, next) => {
 	try {
 		const filters = [];
@@ -432,9 +485,19 @@ app.get("/api/reports/export.csv", requireAuth, async (request, response, next) 
 
 app.get("/api/reports/export.html", requireAuth, async (request, response, next) => {
 	try {
-		const { rows } = await database.query("SELECT case_number, client, type, status, responsible, updated_at FROM cases ORDER BY updated_at DESC LIMIT 1000");
-		const rowsHtml = rows.map((item) => `<tr><td>${item.case_number}</td><td>${item.client}</td><td>${item.type}</td><td>${item.status}</td><td>${item.responsible}</td><td>${new Date(item.updated_at).toLocaleString("pt-BR")}</td></tr>`).join("");
+		const filters = [];
+		const values = [];
+		const addFilter = (condition, value) => { values.push(value); filters.push(condition.replace("$VALUE", `$${values.length}`)); };
+		const scope = ["admin", "manager", "supervisor"].includes(request.user.role) ? "TRUE" : `(created_by = $${values.length + 1} OR assigned_to = $${values.length + 1})`;
+		if (scope !== "TRUE") values.push(request.user.id);
+		if (request.query.from) addFilter("updated_at::date >= $VALUE", String(request.query.from));
+		if (request.query.to) addFilter("updated_at::date <= $VALUE", String(request.query.to));
+		if (request.query.type) addFilter("type = $VALUE", String(request.query.type));
+		const where = [scope, ...filters].join(" AND ");
+		const { rows } = await database.query(`SELECT case_number, client, type, status, responsible, updated_at FROM cases WHERE ${where} ORDER BY updated_at DESC LIMIT 1000`, values);
+		const rowsHtml = rows.map((item) => `<tr><td>${htmlCell(item.case_number)}</td><td>${htmlCell(item.client)}</td><td>${htmlCell(item.type)}</td><td>${htmlCell(item.status)}</td><td>${htmlCell(item.responsible)}</td><td>${htmlCell(new Date(item.updated_at).toLocaleString("pt-BR"))}</td></tr>`).join("");
 		response.setHeader("Content-Type", "text/html; charset=utf-8");
+		response.setHeader("Content-Security-Policy", "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
 		return response.send(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatorio de processos</title><style>body{font:14px Arial;color:#17283a}h1{color:#092d57}table{border-collapse:collapse;width:100%}th,td{border:1px solid #dfe7ef;padding:8px;text-align:left}th{background:#f1f5f8}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><h1>Relatorio de processos</h1><table><thead><tr><th>Processo</th><th>Cliente</th><th>Tipo</th><th>Status</th><th>Responsavel</th><th>Atualizado</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`);
 	} catch (error) { return next(error); }
 });
@@ -459,7 +522,7 @@ app.post("/api/users", requireAuth, requireCapability(capabilities.CREATE_OPERAT
 				if (managerRows[0]) managerId = parsedManagerId;
 			}
 		}
-		const { rows } = await database.query("INSERT INTO users (name, email, password_hash, role, manager_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role, active, manager_id AS \"managerId\", created_at AS \"createdAt\"", [name, email, bcrypt.hashSync(password, 12), role, managerId]);
+		const { rows } = await database.query("INSERT INTO users (name, email, password_hash, role, manager_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role, active, manager_id AS \"managerId\", created_at AS \"createdAt\"", [name, email, await bcrypt.hash(password, 12), role, managerId]);
 		await auditUserChange(request.user.id, rows[0].id, "USER_CREATED", { role, managerId });
 		return response.status(201).json({ user: rows[0] });
 	} catch (error) {
@@ -583,7 +646,7 @@ app.get("/api/search", requireAuth, async (request, response, next) => {
 	} catch (error) { return next(error); }
 });
 
-app.patch("/api/account", requireAuth, async (request, response, next) => { try { const name = String(request.body.name || "").trim(); const password = String(request.body.password || ""); if (!name) return response.status(400).json({ message: "Informe seu nome." }); if (password) await database.query("UPDATE users SET name = $1, password_hash = $2 WHERE id = $3", [name, bcrypt.hashSync(password, 12), request.user.id]); else await database.query("UPDATE users SET name = $1 WHERE id = $2", [name, request.user.id]); const { rows } = await database.query("SELECT id, name, email, role FROM users WHERE id = $1", [request.user.id]); return response.json({ user: rows[0] }); } catch (error) { return next(error); } });
+app.patch("/api/account", requireAuth, async (request, response, next) => { try { const name = String(request.body.name || "").trim(); const password = String(request.body.password || ""); if (!name) return response.status(400).json({ message: "Informe seu nome." }); if (password) await database.query("UPDATE users SET name = $1, password_hash = $2 WHERE id = $3", [name, await bcrypt.hash(password, 12), request.user.id]); else await database.query("UPDATE users SET name = $1 WHERE id = $2", [name, request.user.id]); const { rows } = await database.query("SELECT id, name, email, role FROM users WHERE id = $1", [request.user.id]); return response.json({ user: rows[0] }); } catch (error) { return next(error); } });
 
 app.use((error, request, response, next) => { logEvent("http_error", { method: request.method, path: request.path, error: error.message }); return response.status(500).json({ message: "Erro interno do servidor." }); });
 app.get("*", (request, response) => response.sendFile(path.join(frontendDirectory, "html", "index.html")));
