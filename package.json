@@ -16,7 +16,7 @@
     "docs:api": "node scripts/generate-openapi.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^3.0.3",
     "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "pdfkit": "^0.20.2",
