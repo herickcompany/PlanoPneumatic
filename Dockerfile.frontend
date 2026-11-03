@@ -1,4 +1,4 @@
-FROM nginx:1.27-alpine
+FROM nginx:1.31-alpine
 
 ENV API_UPSTREAM_URL=http://api:3000
 
