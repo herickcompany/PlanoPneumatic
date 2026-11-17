@@ -2,20 +2,26 @@
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/plano_pneumatic_test";
 process.env.NODE_ENV = "test";
 process.env.DISABLE_WEBHOOKS = "true";
+// Simula a API exposta direto (sem proxy confiavel): cabecalhos X-Forwarded-For/X-Real-IP nao valem.
+process.env.TRUST_PROXY = "false";
 process.env.SEED_ADMIN_EMAIL = "seed-admin@test.local";
-process.env.SEED_ADMIN_PASSWORD = "SeedPass123!";
+process.env.SEED_ADMIN_PASSWORD = "Semente-de-Teste-Forte-2026";
 
 const http = require("node:http");
 const bcrypt = require("bcryptjs");
 const { database, initializeDatabase } = require("../db");
-const { createSession } = require("../middleware/auth");
+const { createSession, SESSION_COOKIE, CSRF_COOKIE } = require("../middleware/auth");
+const { resetRateLimits } = require("../middleware/security");
+const settings = require("../services/settings");
 const { app } = require("../app");
 const notifications = require("../services/notifications");
 const mailer = require("../services/mailer");
 
 if (!/test/i.test(new URL(process.env.DATABASE_URL).pathname)) throw new Error("Recusando rodar testes em um banco cujo nome nao contem 'test'.");
 
-const passwordHash = bcrypt.hashSync("StrongPass123!", 4);
+// Senha dos usuarios criados direto no banco pelos testes (passa na politica de senha).
+const PASSWORD = "Pneu-Recauchutado-Azul-77";
+const passwordHash = bcrypt.hashSync(PASSWORD, 4);
 let server;
 let baseUrl;
 
@@ -35,9 +41,15 @@ async function resetDatabase() {
 	// Espera os envios de e-mail/WhatsApp pendentes antes de limpar as tabelas.
 	await notifications.idle();
 	mailer.outbox.length = 0;
-	await database.query("TRUNCATE users, cases, customers, products, case_sequences, webhooks, case_sla_config, app_settings RESTART IDENTITY CASCADE");
+	await database.query(
+		"TRUNCATE users, cases, customers, products, case_sequences, webhooks, case_sla_config, app_settings, login_throttle, audit_log RESTART IDENTITY CASCADE"
+	);
 	await database.query("INSERT INTO case_sla_config (type, days) VALUES ('Pedido de venda', 3), ('Base de troca', 5), ('Garantia', 7)");
-	await database.query("INSERT INTO app_settings (key, value) VALUES ('alerts_enabled', 'true'), ('auto_refresh', 'true'), ('require_documents', 'true')");
+	await database.query(
+		"INSERT INTO app_settings (key, value) VALUES ('alerts_enabled', 'true'), ('auto_refresh', 'true'), ('require_documents', 'true'), ('manager_team_scope', 'false'), ('mfa_required', 'false'), ('activity_tracking', 'true')"
+	);
+	settings.invalidate();
+	resetRateLimits();
 }
 
 let userCounter = 0;
@@ -51,12 +63,17 @@ async function createUser(role = "operator", overrides = {}) {
 	return { ...rows[0], token: session.token };
 }
 
-async function api(method, path, { body, token, headers = {}, raw } = {}) {
+// `cookies` simula o navegador: { session, csrf } vindos de loginWithCookies (csrf vai no X-CSRF-Token).
+async function api(method, path, { body, token, cookies, csrf = true, headers = {}, raw } = {}) {
+	const cookieHeaders = cookies
+		? { Cookie: `${SESSION_COOKIE}=${cookies.session}; ${CSRF_COOKIE}=${cookies.csrf}`, ...(csrf && cookies.csrf ? { "X-CSRF-Token": cookies.csrf } : {}) }
+		: {};
 	const response = await fetch(`${baseUrl}${path}`, {
 		method,
 		headers: {
 			...(raw ? {} : body !== undefined ? { "Content-Type": "application/json" } : {}),
 			...(token ? { Authorization: `Bearer ${token}` } : {}),
+			...cookieHeaders,
 			...headers
 		},
 		body: raw ?? (body !== undefined ? JSON.stringify(body) : undefined)
@@ -67,6 +84,19 @@ async function api(method, path, { body, token, headers = {}, raw } = {}) {
 	else if (contentType.startsWith("text/")) data = await response.text();
 	else data = Buffer.from(await response.arrayBuffer());
 	return { status: response.status, body: data, headers: response.headers };
+}
+
+// Le os cookies Set-Cookie de uma resposta de login.
+function readCookies(response) {
+	const values = response.headers.getSetCookie ? response.headers.getSetCookie() : [];
+	const find = (name) => values.find((value) => value.startsWith(`${name}=`));
+	const value = (name) => decodeURIComponent((find(name) || "").split(";")[0].split("=").slice(1).join("="));
+	return { session: value(SESSION_COOKIE), csrf: value(CSRF_COOKIE), raw: values };
+}
+
+async function loginWithCookies(email, password = PASSWORD, headers = {}) {
+	const response = await api("POST", "/api/auth/login", { body: { email, password }, headers });
+	return { response, cookies: readCookies(response) };
 }
 
 const basePayload = (type = "Garantia", extra = {}) => ({
@@ -90,4 +120,19 @@ const PNG = Buffer.from(
 	"hex"
 );
 
-module.exports = { setup, teardown, resetDatabase, createUser, api, basePayload, createCase, database, PNG };
+module.exports = {
+	resetRateLimitsForTest: resetRateLimits,
+	setup,
+	teardown,
+	resetDatabase,
+	createUser,
+	api,
+	basePayload,
+	createCase,
+	database,
+	PNG,
+	PASSWORD,
+	readCookies,
+	loginWithCookies,
+	baseUrl: () => baseUrl
+};

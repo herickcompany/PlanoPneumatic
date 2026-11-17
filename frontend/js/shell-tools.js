@@ -93,7 +93,7 @@
 	}
 
 	async function refreshNotifications() {
-		if (document.hidden || !window.PP?.getSession()?.token) return;
+		if (document.hidden || !window.PP?.getSession()?.user) return;
 		try {
 			setBadge((await window.PP.api.get("/api/notifications?unread=true")).unread);
 		} catch {
@@ -160,7 +160,7 @@
 
 	function mount() {
 		const topbar = document.querySelector(".dashboard-content .topbar");
-		if (!topbar || topbar.querySelector(".shell-tools") || !window.PP?.getSession()?.token) return;
+		if (!topbar || topbar.querySelector(".shell-tools") || !window.PP?.getSession()?.user) return;
 		const { icon } = window.PP;
 		if (!topbar.querySelector(".menu-button")) {
 			const menu = document.createElement("button");
@@ -194,8 +194,8 @@
 		const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "") || document.activeElement?.isContentEditable;
 		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
 			event.preventDefault();
-			if (window.PP?.getSession()?.token) openPalette();
-		} else if (event.key === "/" && !typing && window.PP?.getSession()?.token) {
+			if (window.PP?.getSession()?.user) openPalette();
+		} else if (event.key === "/" && !typing && window.PP?.getSession()?.user) {
 			event.preventDefault();
 			openPalette();
 		} else if (event.key === "Escape" && panel) {

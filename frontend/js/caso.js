@@ -97,7 +97,7 @@ document.head.appendChild(sharedShellScript);
 	const display = (value, kind) => {
 		if (value === "" || value === null || value === undefined) return "—";
 		if (kind === "money") return PP.money(value);
-		if (kind === "document") return PP.formatDocument(value);
+		if (kind === "document") return PP.maskDocument(value);
 		if (kind === "date") return new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR");
 		return value;
 	};
@@ -134,7 +134,7 @@ document.head.appendChild(sharedShellScript);
 	function divergenceBanner() {
 		const issues = data.commercialDivergence?.issues;
 		if (!issues?.length) return data.omieOrderNumber ? `<p class="omie-check">✔ Itens conferem com o pedido ${esc(data.omieOrderNumber)} do Omie.</p>` : "";
-		return `<div class="draft-banner" role="alert" style="margin-top:12px"><span><strong>Divergência comercial com o pedido ${esc(data.omieOrderNumber)} do Omie — revisão do gerente necessária antes de aprovar:</strong><ul style="margin:6px 0 0">${issues.map((issue) => `<li><strong>${esc(issue.code)}</strong>: ${esc((DIVERGENCE_TEXT[issue.kind] || (() => issue.kind))(issue))}</li>`).join("")}</ul></span></div>`;
+		return `<div class="draft-banner mt-12" role="alert"><span><strong>Divergência comercial com o pedido ${esc(data.omieOrderNumber)} do Omie — revisão do gerente necessária antes de aprovar:</strong><ul class="compact-list">${issues.map((issue) => `<li><strong>${esc(issue.code)}</strong>: ${esc((DIVERGENCE_TEXT[issue.kind] || (() => issue.kind))(issue))}</li>`).join("")}</ul></span></div>`;
 	}
 
 	function render() {
@@ -170,7 +170,7 @@ document.head.appendChild(sharedShellScript);
 			: "";
 		const reportPanel =
 			data.type === "Garantia"
-				? `<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Análise técnica</p><h2>Laudo e decisão</h2></div>${data.warrantyDecision ? `<span class="table-status ${data.warrantyDecision === "procedente" ? "green" : "red"}">${data.warrantyDecision === "procedente" ? "Procedente" : "Improcedente"}</span>` : '<span class="table-status orange">Sem decisão</span>'}</div><div class="kv-grid"><div><small>Responsável técnico</small><strong>${esc(data.technicalOwnerName || "—")}</strong></div><div><small>Destino</small><strong>${esc(meta.warrantyDestinations[data.warrantyDestination] || "—")}</strong></div><div><small>Decidido por</small><strong>${esc(data.decidedByName || "—")}</strong></div></div>${permissions.technical && permissions.edit ? `<form id="report-form" class="form"><label>Laudo técnico<textarea name="technicalReport" rows="5" maxlength="8000" placeholder="Descreva a análise, a causa do defeito e a conclusão">${esc(data.technicalReport)}</textarea></label><div class="form-actions"><button class="button button-secondary compact-button" type="button" id="take-ownership">Assumir como responsável técnico</button><button class="button button-primary compact-button" type="submit">Salvar laudo</button></div></form>` : `<p style="white-space:pre-wrap">${esc(data.technicalReport || "Nenhum laudo registrado.")}</p>`}</article>`
+				? `<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Análise técnica</p><h2>Laudo e decisão</h2></div>${data.warrantyDecision ? `<span class="table-status ${data.warrantyDecision === "procedente" ? "green" : "red"}">${data.warrantyDecision === "procedente" ? "Procedente" : "Improcedente"}</span>` : '<span class="table-status orange">Sem decisão</span>'}</div><div class="kv-grid"><div><small>Responsável técnico</small><strong>${esc(data.technicalOwnerName || "—")}</strong></div><div><small>Destino</small><strong>${esc(meta.warrantyDestinations[data.warrantyDestination] || "—")}</strong></div><div><small>Decidido por</small><strong>${esc(data.decidedByName || "—")}</strong></div></div>${permissions.technical && permissions.edit ? `<form id="report-form" class="form"><label>Laudo técnico<textarea name="technicalReport" rows="5" maxlength="8000" placeholder="Descreva a análise, a causa do defeito e a conclusão">${esc(data.technicalReport)}</textarea></label><div class="form-actions"><button class="button button-secondary compact-button" type="button" id="take-ownership">Assumir como responsável técnico</button><button class="button button-primary compact-button" type="submit">Salvar laudo</button></div></form>` : `<p class="pre-wrap">${esc(data.technicalReport || "Nenhum laudo registrado.")}</p>`}</article>`
 				: "";
 		const logisticsPanel =
 			data.type === "Base de troca"
@@ -222,9 +222,9 @@ document.head.appendChild(sharedShellScript);
 				</section>
 				<section>
 					<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Responsabilidade</p><h2>Atribuição e prazo</h2></div></div><div class="side-meta">${assigneePanel}<div><small>Prazo</small><strong>${data.dueAt ? esc(PP.formatDateTime(data.dueAt)) : "—"}</strong> ${PP.slaBadge(data)}</div></div></article>
-					<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Etapas</p><h2>Checklist</h2></div><span class="process-status">${data.checklist.filter((entry) => entry.completed).length}/${data.checklist.length}</span></div><div class="progress" role="progressbar" aria-label="Progresso do checklist" aria-valuemin="0" aria-valuemax="${data.checklist.length}" aria-valuenow="${data.checklist.filter((entry) => entry.completed).length}"><span style="width:${data.checklist.length ? Math.round((data.checklist.filter((entry) => entry.completed).length / data.checklist.length) * 100) : 0}%"></span></div><div class="checklist">${data.checklist.map((entry) => `<label><input type="checkbox" data-checklist="${esc(entry.id)}" ${entry.completed ? "checked" : ""} ${permissions.edit ? "" : "disabled"} /> ${esc(entry.label)}</label>`).join("") || '<p class="muted">Sem checklist.</p>'}</div></article>
+					<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Etapas</p><h2>Checklist</h2></div><span class="process-status">${data.checklist.filter((entry) => entry.completed).length}/${data.checklist.length}</span></div><div class="progress" role="progressbar" aria-label="Progresso do checklist" aria-valuemin="0" aria-valuemax="${data.checklist.length}" aria-valuenow="${data.checklist.filter((entry) => entry.completed).length}"><span data-w="${data.checklist.length ? Math.round((data.checklist.filter((entry) => entry.completed).length / data.checklist.length) * 100) : 0}"></span></div><div class="checklist">${data.checklist.map((entry) => `<label><input type="checkbox" data-checklist="${esc(entry.id)}" ${entry.completed ? "checked" : ""} ${permissions.edit ? "" : "disabled"} /> ${esc(entry.label)}</label>`).join("") || '<p class="muted">Sem checklist.</p>'}</div></article>
 					<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Documentos</p><h2>Anexos</h2></div></div>${permissions.edit && !data.archived ? `<div class="dropzone" id="dropzone"><span>Arraste um arquivo (JPG, PNG, WEBP ou PDF, até 10 MB) ou</span><div class="inline-form"><label>Tipo<select id="attachment-kind">${kinds.map((kind) => `<option>${esc(kind)}</option>`).join("")}</select></label><label>Arquivo<input type="file" id="attachment-file" accept="image/jpeg,image/png,image/webp,application/pdf" /></label></div><span id="upload-status" class="muted" role="status"></span></div>` : ""}<div>${attachments}</div></article>
-					<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Rastreabilidade</p><h2>Linha do tempo</h2></div></div><div class="timeline">${timeline}</div></article>${data.serialNumber || data.lotNumber ? `<p><a class="table-link" href="/historico.html?serial=${encodeURIComponent(data.serialNumber || data.lotNumber)}">Ver histórico desta peça (série/lote) →</a></p>` : ""}
+					<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Rastreabilidade</p><h2>Linha do tempo</h2></div>${PP.can("users.audit.view") ? `<a class="table-link" href="/auditoria.html?caseNumber=${encodeURIComponent(data.id)}">Auditoria (IP e alterações) →</a>` : ""}</div><div class="timeline">${timeline}</div></article>${data.serialNumber || data.lotNumber ? `<p><a class="table-link" href="/historico.html?serial=${encodeURIComponent(data.serialNumber || data.lotNumber)}">Ver histórico desta peça (série/lote) →</a></p>` : ""}
 				</section>
 			</div>`;
 		bind();
@@ -240,7 +240,7 @@ document.head.appendChild(sharedShellScript);
 				result.comments
 					.map(
 						(item) =>
-							`<div class="comment-item"><strong>${esc(item.authorName)}</strong> <small class="muted">${esc(PP.formatDateTime(item.createdAt))}</small><p style="white-space:pre-wrap;margin:4px 0 10px">${esc(item.body)}</p></div>`
+							`<div class="comment-item"><strong>${esc(item.authorName)}</strong> <small class="muted">${esc(PP.formatDateTime(item.createdAt))}</small><p class="pre-wrap comment-body">${esc(item.body)}</p></div>`
 					)
 					.join("") || PP.emptyState("Nenhum comentário ainda");
 		} catch (error) {

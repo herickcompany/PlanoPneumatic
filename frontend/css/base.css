@@ -1377,3 +1377,10 @@ td:has(> .table-link) {
 	outline-offset: 2px;
 	border-radius: 4px;
 }
+
+/* Botao de perigo no tema escuro automatico (mesmo contraste do tema escuro escolhido) */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) .button-danger {
+		color: #1a0b0c;
+	}
+}

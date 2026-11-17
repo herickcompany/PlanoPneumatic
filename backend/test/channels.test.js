@@ -21,6 +21,7 @@ afterEach(() => {
 });
 
 test("esqueci a senha: e-mail com link, token consultavel, troca unica e encerramento das sessoes", async () => {
+	process.env.SMTP_HOST = "smtp.test.local";
 	const operator = await h.createUser("operator");
 	const answer = await h.api("POST", "/api/auth/forgot-password", { body: { email: operator.email } });
 	assert.equal(answer.status, 200);
@@ -34,15 +35,30 @@ test("esqueci a senha: e-mail com link, token consultavel, troca unica e encerra
 	assert.equal(info.body.purpose, "reset");
 	assert.equal(info.body.email, operator.email);
 
-	assert.equal((await h.api("POST", "/api/auth/reset-password", { body: { token, password: "NovaSenha123" } })).status, 200);
+	// O link segue a mesma politica de senha da seguranca (12+ caracteres, sem senhas comuns).
+	const weak = await h.api("POST", "/api/auth/reset-password", { body: { token, password: "12345678" } });
+	assert.equal(weak.status, 400);
+	assert.equal(weak.body.code, "WEAK_PASSWORD");
+	assert.equal((await h.api("POST", "/api/auth/reset-password", { body: { token, password: "Roda-Firme-na-Serra-42" } })).status, 200);
+	const { rows: audited } = await h.database.query("SELECT action FROM audit_log WHERE action LIKE 'PASSWORD_RESET%' ORDER BY id");
+	assert.deepEqual(
+		audited.map((row) => row.action),
+		["PASSWORD_RESET_REQUESTED", "PASSWORD_RESET_BY_LINK"]
+	);
 	assert.equal((await h.api("GET", "/api/auth/me", { token: operator.token })).status, 401, "sessoes antigas encerradas");
 	assert.equal((await h.api("GET", `/api/auth/token/${token}`)).status, 404, "token usado nao vale de novo");
-	assert.equal((await h.api("POST", "/api/auth/login", { body: { email: operator.email, password: "NovaSenha123" } })).status, 200);
+	assert.equal((await h.api("POST", "/api/auth/login", { body: { email: operator.email, password: "Roda-Firme-na-Serra-42" } })).status, 200);
 
 	// E-mail desconhecido responde igual e nao envia nada.
 	mailer.outbox.length = 0;
 	assert.equal((await h.api("POST", "/api/auth/forgot-password", { body: { email: "ninguem@test.local" } })).status, 200);
 	assert.equal(mailer.outbox.length, 0);
+
+	// Sem SMTP configurado nenhum link e gerado (so o administrador redefine).
+	delete process.env.SMTP_HOST;
+	await h.database.query("DELETE FROM password_reset_tokens");
+	assert.equal((await h.api("POST", "/api/auth/forgot-password", { body: { email: operator.email } })).status, 200);
+	assert.equal((await h.database.query("SELECT COUNT(*)::int AS n FROM password_reset_tokens")).rows[0].n, 0);
 });
 
 test("convite: conta criada sem senha, link de primeiro acesso (72 h) e reenvio pelo gerente do time", async () => {
@@ -59,8 +75,8 @@ test("convite: conta criada sem senha, link de primeiro acesso (72 h) e reenvio 
 	assert.equal(info.body.purpose, "invite");
 	const { rows } = await h.database.query("SELECT expires_at > NOW() + INTERVAL '71 hours' AS long FROM password_reset_tokens WHERE purpose = 'invite'");
 	assert.equal(rows[0].long, true);
-	assert.equal((await h.api("POST", "/api/auth/reset-password", { body: { token, password: "PrimeiroAcesso1" } })).status, 200);
-	assert.equal((await h.api("POST", "/api/auth/login", { body: { email: "nova@test.local", password: "PrimeiroAcesso1" } })).status, 200);
+	assert.equal((await h.api("POST", "/api/auth/reset-password", { body: { token, password: "Valvula-Azul-no-Patio-18" } })).status, 200);
+	assert.equal((await h.api("POST", "/api/auth/login", { body: { email: "nova@test.local", password: "Valvula-Azul-no-Patio-18" } })).status, 200);
 
 	// Sem convite, a senha inicial continua obrigatoria.
 	assert.equal(
@@ -225,7 +241,13 @@ test("producao exige FRONTEND_ORIGIN e API_PUBLIC_URL em https", () => {
 		try {
 			execFileSync(process.execPath, ["-e", "require('./backend/config').validateConfig()"], {
 				cwd: path.join(__dirname, "..", ".."),
-				env: { PATH: process.env.PATH, NODE_ENV: "production", DATABASE_URL: "postgres://x", ...env },
+				env: {
+					PATH: process.env.PATH,
+					NODE_ENV: "production",
+					DATABASE_URL: "postgres://x",
+					APP_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
+					...env
+				},
 				stdio: "pipe"
 			});
 			return "ok";

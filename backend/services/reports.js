@@ -228,7 +228,8 @@ async function advancedDashboard(user, query) {
 		`SELECT COALESCE(SUM(c.quantity * c.unit_price), 0)::numeric(14,2) AS estimated_cost, COUNT(*)::int AS approved FROM cases c WHERE ${where} AND c.type = 'Garantia' AND c.warranty_decision = 'procedente' AND c.unit_price IS NOT NULL`
 	);
 	const { rows: goals } = await database.query(
-		'SELECT g.manager_id AS "managerId", u.name AS "managerName", g.monthly_target AS "monthlyTarget", COALESCE((SELECT COUNT(*) FROM cases c2 JOIN users u2 ON u2.id = c2.created_by WHERE (u2.id = g.manager_id OR u2.manager_id = g.manager_id) AND c2.created_at >= date_trunc(\'month\', NOW() AT TIME ZONE \'America/Sao_Paulo\')), 0)::int AS achieved FROM team_goals g JOIN users u ON u.id = g.manager_id ORDER BY u.name'
+		`SELECT g.manager_id AS "managerId", u.name AS "managerName", g.monthly_target AS "monthlyTarget", COALESCE((SELECT COUNT(*) FROM cases c2 JOIN users u2 ON u2.id = c2.created_by WHERE (u2.id = g.manager_id OR u2.manager_id = g.manager_id) AND c2.created_at >= date_trunc('month', NOW() AT TIME ZONE 'America/Sao_Paulo')), 0)::int AS achieved FROM team_goals g JOIN users u ON u.id = g.manager_id ${user.teamScoped ? "WHERE g.manager_id = $1" : ""} ORDER BY u.name`,
+		user.teamScoped ? [user.id] : []
 	);
 	return { monthly: monthly.reverse(), stageDurations, recurrence, warrantyCost: { estimated: Number(cost.estimated_cost), approved: cost.approved }, goals };
 }

@@ -22,7 +22,13 @@ const PAGES = [
 
 async function audit(page) {
 	const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-	return results.violations.map((violation) => `${violation.id} (${violation.impact}): ${violation.help} -> ${violation.nodes.slice(0, 3).map((node) => node.target.join(" ")).join(" | ")}`);
+	return results.violations.map(
+		(violation) =>
+			`${violation.id} (${violation.impact}): ${violation.help} -> ${violation.nodes
+				.slice(0, 3)
+				.map((node) => node.target.join(" "))
+				.join(" | ")}`
+	);
 }
 
 test("tela de login e recuperacao de senha sem violacoes", async ({ page }) => {
@@ -40,7 +46,7 @@ for (const scheme of ["light", "dark"]) {
 		await page.waitForLoadState("networkidle");
 		const form = page.locator("#login-form");
 		await form.getByLabel("E-mail").fill("admin@e2e.local");
-		await form.getByLabel("Senha").fill("E2eAdminPass1");
+		await form.getByLabel("Senha", { exact: true }).fill("Painel-Central-E2E-Seguro-7");
 		await form.getByRole("button", { name: /Entrar/ }).click();
 		await expect(page.getByRole("heading", { name: "Dashboard operacional" })).toBeVisible();
 		const problems = [];

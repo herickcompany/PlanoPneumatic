@@ -127,7 +127,7 @@ document.head.appendChild(sharedShellScript);
 			try {
 				customers = (await api.get(`/api/customers?q=${encodeURIComponent(form.client.value.trim())}&limit=8`)).customers;
 				customerList.innerHTML = customers
-					.map((customer) => `<option value="${esc(customer.name)}">${esc(PP.formatDocument(customer.document || ""))}</option>`)
+					.map((customer) => `<option value="${esc(customer.name)}">${esc(PP.maskDocument(customer.document || ""))}</option>`)
 					.join("");
 			} catch {
 				/* autocomplete e opcional */
@@ -169,7 +169,7 @@ document.head.appendChild(sharedShellScript);
 		const button = document.createElement("button");
 		button.type = "button";
 		button.className = "button button-secondary compact-button";
-		button.style.cssText = "align-self:end;justify-self:start;margin-bottom:2px";
+		button.classList.add("align-end-button");
 		button.textContent = isOrder ? "Buscar pedido no Omie" : "Validar NF no Omie";
 		input.closest("label").after(button);
 		button.addEventListener("click", async () => {

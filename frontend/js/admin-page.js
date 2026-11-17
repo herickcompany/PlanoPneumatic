@@ -23,7 +23,7 @@ document.head.appendChild(sharedShellScript);
 	const section = (eyebrow, title, body, extra = "") =>
 		`<section class="panel"><div class="panel-heading"><div><p class="eyebrow">${esc(eyebrow)}</p><h2>${esc(title)}</h2></div>${extra}</div>${body}</section>`;
 	const table = (heads, rows, empty = "Nenhum registro.") =>
-		`<div class="table-wrap"><table><thead><tr>${heads.map((head) => `<th>${esc(head)}</th>`).join("")}</tr></thead><tbody>${rows.join("") || `<tr><td colspan="${heads.length}">${PP.emptyState(empty)}</td></tr>`}</tbody></table></div>`;
+		`<div class="table-wrap" tabindex="0"><table><thead><tr>${heads.map((head) => `<th>${esc(head)}</th>`).join("")}</tr></thead><tbody>${rows.join("") || `<tr><td colspan="${heads.length}">${PP.emptyState(empty)}</td></tr>`}</tbody></table></div>`;
 	const filterQuery = (form) => {
 		const params = new URLSearchParams(new FormData(form));
 		[...params.keys()].forEach((key) => {
@@ -143,7 +143,7 @@ document.head.appendChild(sharedShellScript);
 				if (view === "summary") {
 					const data = await api.get(`/api/reports/summary?${reportQuery()}`);
 					host.innerHTML = `<section class="indicator-grid report-cards">${card("Total de casos", data.totals.total)}${card("Aguardando documento", data.totals.pending, "orange")}${card("Garantias em análise", data.totals.guarantees_in_analysis, "red")}${card("Concluídos", data.totals.completed, "green")}</section>
-					<section class="content-grid report-grid"><article class="panel"><div class="panel-heading"><div><p class="eyebrow">Distribuição</p><h2>Casos por tipo</h2></div></div><div class="report-bars">${data.byType.map((item) => `<div class="report-bar"><div><strong>${esc(item.label)}</strong><span>${esc(item.value)}</span></div><i style="width:${Math.max(10, (item.value / Math.max(data.totals.total, 1)) * 100)}%"></i></div>`).join("") || '<p class="muted">Sem dados.</p>'}</div></article>
+					<section class="content-grid report-grid"><article class="panel"><div class="panel-heading"><div><p class="eyebrow">Distribuição</p><h2>Casos por tipo</h2></div></div><div class="report-bars">${data.byType.map((item) => `<div class="report-bar"><div><strong>${esc(item.label)}</strong><span>${esc(item.value)}</span></div><i data-w="${Math.max(10, (item.value / Math.max(data.totals.total, 1)) * 100)}"></i></div>`).join("") || '<p class="muted">Sem dados.</p>'}</div></article>
 					<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Prazo</p><h2>Processos vencidos</h2></div><span class="process-status">${data.stalled.length}</span></div>${table(
 						["Processo", "Cliente", "Status", "Vencimento"],
 						data.stalled
@@ -177,7 +177,7 @@ document.head.appendChild(sharedShellScript);
 					host.innerHTML = section(
 						"Processo",
 						"Relatório de um processo",
-						'<form id="case-report-form" class="inline-form"><label>Número do processo<input name="id" placeholder="Ex.: GAR-2026-0045" required /></label><button class="button button-primary compact-button" type="submit">Gerar</button></form><div id="case-report" style="margin-top:16px"></div>'
+						'<form id="case-report-form" class="inline-form"><label>Número do processo<input name="id" placeholder="Ex.: GAR-2026-0045" required /></label><button class="button button-primary compact-button" type="submit">Gerar</button></form><div id="case-report" class="mt-16"></div>'
 					);
 					host.querySelector("#case-report-form").addEventListener("submit", async (event) => {
 						event.preventDefault();
@@ -230,7 +230,7 @@ document.head.appendChild(sharedShellScript);
 			data.teams
 				.map(
 					(team) =>
-						`<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Time</p><h2>${esc(team.managerName)}</h2></div><span class="process-status">${esc(team.partsRegistered)} peças</span></div>${team.managerId && team.monthlyTarget ? `<div class="distribution-row"><div><strong>Meta do mês</strong><span>${esc(team.casesThisMonth)}/${esc(team.monthlyTarget)} processos</span></div><i style="width:${Math.min(100, (team.casesThisMonth / team.monthlyTarget) * 100)}%"></i></div>` : ""}${canGoal && team.managerId ? `<form class="inline-form" data-goal="${esc(team.managerId)}"><label>Meta mensal (processos)<input name="monthlyTarget" type="number" min="1" value="${esc(team.monthlyTarget || "")}" required /></label><button class="button button-secondary compact-button" type="submit">Salvar meta</button></form>` : ""}${table(
+						`<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Time</p><h2>${esc(team.managerName)}</h2></div><span class="process-status">${esc(team.partsRegistered)} peças</span></div>${team.managerId && team.monthlyTarget ? `<div class="distribution-row"><div><strong>Meta do mês</strong><span>${esc(team.casesThisMonth)}/${esc(team.monthlyTarget)} processos</span></div><i data-w="${Math.min(100, (team.casesThisMonth / team.monthlyTarget) * 100)}"></i></div>` : ""}${canGoal && team.managerId ? `<form class="inline-form" data-goal="${esc(team.managerId)}"><label>Meta mensal (processos)<input name="monthlyTarget" type="number" min="1" value="${esc(team.monthlyTarget || "")}" required /></label><button class="button button-secondary compact-button" type="submit">Salvar meta</button></form>` : ""}${table(
 							["Integrante", "Perfil", "Processos", "Peças", "No mês"],
 							team.members.map(
 								(member) =>
@@ -279,11 +279,13 @@ document.head.appendChild(sharedShellScript);
 	async function settingsPage() {
 		const [{ settings, sla }, meta] = await Promise.all([api.get("/api/settings"), PP.meta()]);
 		const editable = PP.can("settings.manage");
-		const toggle = (key, title, hint) =>
-			`<label class="setting-row"><span><strong>${esc(title)}</strong><small>${esc(hint)}</small></span><input type="checkbox" data-setting="${esc(key)}" ${settings[key] ? "checked" : ""} ${editable ? "" : "disabled"} /></label>`;
+		const isAdmin = PP.can("users.create.any");
+		const toggle = (key, title, hint, allowed = editable) =>
+			`<label class="setting-row"><span><strong>${esc(title)}</strong><small>${esc(hint)}</small></span><input type="checkbox" data-setting="${esc(key)}" ${settings[key] ? "checked" : ""} ${allowed ? "" : "disabled"} /></label>`;
+		const securityPanel = `<article class="panel"><p class="eyebrow">Segurança e privacidade</p><h2>Acesso aos dados</h2>${isAdmin ? "" : '<p class="muted">Somente o administrador altera estas opções.</p>'}${toggle("manager_team_scope", "Gerente vê só o próprio time", "Cada gerente vê apenas os processos criados por ou atribuídos a ele e aos usuários do seu time. Monte os times em Usuários antes de ligar.", isAdmin)}${toggle("mfa_required", "Verificação em duas etapas obrigatória", "Administradores e gerentes só acessam depois de ativar o código do celular (MFA).", isAdmin)}${toggle("activity_tracking", "Registro de navegação", "Guarda as telas visitadas para relatórios de uso (apagado automaticamente após o prazo de retenção).", isAdmin)}</article>`;
 		set(`<section class="settings-grid"><article class="panel"><p class="eyebrow">Operação</p><h2>Configurações do sistema</h2>${editable ? "" : '<p class="muted">Somente gerentes e administradores alteram estas opções.</p>'}${toggle("alerts_enabled", "Alertas de prazo", "Exibir processos vencidos ou perto do vencimento no dashboard")}${toggle("auto_refresh", "Atualização automática", "Atualizar os indicadores do dashboard a cada minuto")}${toggle("require_documents", "Exigir documentação", "Bloquear conclusão e encerramento sem ao menos um anexo")}</article>
 		<article class="panel"><p class="eyebrow">Prazos</p><h2>SLA por tipo (dias)</h2><p class="muted">O prazo conta da abertura e fica pausado enquanto o processo aguarda documento.</p>${sla.map((entry) => `<form class="inline-form" data-sla="${esc(entry.type)}"><label>${esc(entry.type)}<input name="days" type="number" min="1" max="365" value="${esc(entry.days)}" ${editable ? "" : "disabled"} required /></label>${editable ? '<button class="button button-secondary compact-button" type="submit">Salvar</button>' : ""}</form>`).join("")}</article>
-		<article class="panel"><p class="eyebrow">Padrão operacional</p><h2>Status do fluxo</h2><div class="status-reference">${meta.statuses.map((status) => `<span class="table-status ${PP.statusTone(status.code)}">${esc(status.label)}</span>`).join("")}</div><p class="muted">Cada tipo de processo só permite as transições válidas; decisões (aprovar, improcedente, encerrar) exigem perfil de gerente ou técnico.</p></article></section>`);
+		<article class="panel"><p class="eyebrow">Padrão operacional</p><h2>Status do fluxo</h2><div class="status-reference">${meta.statuses.map((status) => `<span class="table-status ${PP.statusTone(status.code)}">${esc(status.label)}</span>`).join("")}</div><p class="muted">Cada tipo de processo só permite as transições válidas; decisões (aprovar, improcedente, encerrar) exigem perfil de gerente ou técnico.</p></article>${securityPanel}</section>`);
 		content()
 			.querySelectorAll("[data-setting]")
 			.forEach((input) =>
@@ -312,13 +314,44 @@ document.head.appendChild(sharedShellScript);
 			);
 	}
 
+	const describeDevice = (userAgent) => {
+		const text = String(userAgent || "");
+		const browser = /Edg\//.test(text)
+			? "Edge"
+			: /OPR\//.test(text)
+				? "Opera"
+				: /Chrome\//.test(text)
+					? "Chrome"
+					: /Firefox\//.test(text)
+						? "Firefox"
+						: /Safari\//.test(text)
+							? "Safari"
+							: "Navegador";
+		const system = /Android/.test(text)
+			? "Android"
+			: /iPhone|iPad/.test(text)
+				? "iOS"
+				: /Windows/.test(text)
+					? "Windows"
+					: /Mac OS X/.test(text)
+						? "macOS"
+						: /Linux/.test(text)
+							? "Linux"
+							: "";
+		return text ? `${browser}${system ? ` no ${system}` : ""}` : "Aplicativo ou integração";
+	};
+
 	async function accountPage() {
 		const { user, channels } = await api.get("/api/account");
-		const toggle = (name, title, hint, checked, enabled) =>
+		const channelToggle = (name, title, hint, checked, enabled) =>
 			`<label class="setting-row"><span><strong>${esc(title)}</strong><small>${esc(hint)}</small></span><input type="checkbox" name="${name}" ${checked ? "checked" : ""} ${enabled ? "" : "disabled"} /></label>`;
-		set(
-			`<section class="panel account-panel"><p class="eyebrow">Meu acesso</p><h2>Configurações da conta</h2><p class="muted">Atualize seus dados pessoais. O perfil de acesso (${esc(PP.roleLabel(user.role))}) é administrado pelo sistema.</p><form id="account-form" class="form account-form" novalidate><label>Nome<input name="name" value="${esc(user.name)}" required /></label><label>E-mail<input value="${esc(user.email)}" disabled /></label><label>Celular (WhatsApp)<input name="phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(user.phone || "")}" placeholder="(19) 99999-0000" /></label><label>Nova senha<input name="password" type="password" autocomplete="new-password" placeholder="Deixe em branco para manter a atual" /></label><fieldset class="account-channels"><legend>Onde receber os avisos</legend><p class="muted">Os avisos sempre aparecem no sino do sistema. Marque também os canais externos que quiser.</p>${toggle("notifyEmail", "E-mail", channels.email ? "Prazos, atribuições e menções no seu e-mail." : "Indisponível: o envio de e-mail ainda não foi configurado no servidor.", user.notifyEmail, channels.email)}${toggle("notifyWhatsapp", "WhatsApp", channels.whatsapp ? "Exige o celular preenchido acima. Você pode desligar quando quiser." : "Indisponível: o WhatsApp ainda não foi configurado no servidor.", user.notifyWhatsapp, channels.whatsapp)}</fieldset><button class="button button-primary" type="submit">Salvar alterações <span>→</span></button><p id="account-feedback" class="feedback" role="alert"></p></form></section>`
-		);
+		const channelsHtml = `<label>Celular (WhatsApp)<input name="phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(user.phone || "")}" placeholder="(19) 99999-0000" /></label><fieldset class="account-channels"><legend>Onde receber os avisos</legend><p class="muted">Os avisos sempre aparecem no sino do sistema. Marque também os canais externos que quiser.</p>${channelToggle("notifyEmail", "E-mail", channels.email ? "Prazos, atribuições e menções no seu e-mail." : "Indisponível: o envio de e-mail ainda não foi configurado no servidor.", user.notifyEmail, channels.email)}${channelToggle("notifyWhatsapp", "WhatsApp", channels.whatsapp ? "Exige o celular preenchido acima. Você pode desligar quando quiser." : "Indisponível: o WhatsApp ainda não foi configurado no servidor.", user.notifyWhatsapp, channels.whatsapp)}</fieldset>`;
+		set(`<div class="account-sections">
+			<section class="panel account-panel"><p class="eyebrow">Meu acesso</p><h2>Dados da conta</h2><p class="muted">O perfil de acesso (${esc(PP.roleLabel(user.role))}) é administrado pelo sistema.</p><form id="account-form" class="form account-form" novalidate><label>Nome<input name="name" value="${esc(user.name)}" maxlength="120" required /></label><label>E-mail<input value="${esc(user.email)}" disabled /></label>${channelsHtml}<button class="button button-primary" type="submit">Salvar dados <span>→</span></button><p id="account-feedback" class="feedback" role="alert"></p></form></section>
+			<section class="panel account-panel"><p class="eyebrow">Senha</p><h2>Trocar senha</h2><p class="muted">Ao trocar a senha, os outros aparelhos conectados saem da conta.</p><form id="password-form" class="form account-form" novalidate><label>Senha atual<input name="currentPassword" type="password" autocomplete="current-password" required /></label><label>Nova senha<input name="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="72" required /></label><label>Confirme a nova senha<input name="confirmPassword" type="password" autocomplete="new-password" required /></label><p class="muted password-hint">Mínimo de 12 caracteres. Prefira uma frase com várias palavras; não use seu nome, e-mail ou o nome da empresa.</p><button class="button button-primary" type="submit">Trocar senha</button><p id="password-feedback" class="feedback" role="alert"></p></form></section>
+			<section class="panel"><div class="panel-heading"><div><p class="eyebrow">Segurança</p><h2>Verificação em duas etapas (MFA)</h2></div><span id="mfa-status" class="process-status">…</span></div><div id="mfa-panel">${PP.skeleton(2)}</div></section>
+			<section class="panel"><div class="panel-heading"><div><p class="eyebrow">Aparelhos</p><h2>Sessões ativas</h2></div><div class="actions-cell"><button class="button button-secondary compact-button" type="button" id="revoke-others" data-track="sair-outros-aparelhos">Sair dos outros aparelhos</button><button class="button button-danger compact-button" type="button" id="logout-all" data-track="sair-de-todos">Sair de todos</button></div></div><div id="sessions-panel">${PP.skeleton(3)}</div></section>
+		</div>`);
 		document.querySelector("#account-form").addEventListener("submit", async (event) => {
 			event.preventDefault();
 			const form = event.currentTarget;
@@ -330,19 +363,157 @@ document.head.appendChild(sharedShellScript);
 			try {
 				const result = await api.patch("/api/account", {
 					name: form.name.value,
-					password: form.password.value,
 					phone: form.phone.value,
 					notifyEmail: form.notifyEmail.checked,
 					notifyWhatsapp: form.notifyWhatsapp.checked
 				});
 				PP.fillProfile(result.user);
-				form.password.value = "";
 				feedback.textContent = "";
 				PP.toast("Dados atualizados.", "success");
 			} catch (error) {
 				feedback.textContent = error.message;
 			}
 		});
+		document.querySelector("#password-form").addEventListener("submit", async (event) => {
+			event.preventDefault();
+			const form = event.currentTarget;
+			const feedback = document.querySelector("#password-feedback");
+			feedback.textContent = "";
+			if (form.newPassword.value.length < 12) {
+				feedback.textContent = "A nova senha deve ter pelo menos 12 caracteres.";
+				return;
+			}
+			if (form.newPassword.value !== form.confirmPassword.value) {
+				feedback.textContent = "A confirmação não confere com a nova senha.";
+				return;
+			}
+			try {
+				const result = await api.post("/api/auth/change-password", { currentPassword: form.currentPassword.value, newPassword: form.newPassword.value });
+				form.reset();
+				PP.toast(
+					result.otherSessionsEnded ? `Senha alterada. ${result.otherSessionsEnded} outro(s) aparelho(s) saíram da conta.` : "Senha alterada.",
+					"success"
+				);
+				await loadSessions();
+			} catch (error) {
+				feedback.textContent = error.message;
+			}
+		});
+
+		async function loadSessions() {
+			const host = document.querySelector("#sessions-panel");
+			try {
+				const data = await api.get("/api/auth/sessions");
+				host.innerHTML = `<p class="muted">Sessões sem uso por ${esc(Math.round((data.idleMinutes / 60) * 10) / 10)} h saem automaticamente.</p>${table(
+					["Aparelho", "IP", "Entrou em", "Último uso", ""],
+					data.sessions.map(
+						(session) =>
+							`<tr><td class="${session.current ? "session-current" : ""}">${esc(describeDevice(session.userAgent))}${session.current ? " (este aparelho)" : ""}</td><td>${esc(session.ip || "—")}</td><td>${esc(PP.formatDateTime(session.createdAt))}</td><td>${esc(PP.formatDateTime(session.lastSeenAt))}</td><td>${session.current ? "" : `<button class="button button-secondary compact-button" type="button" data-revoke-session="${esc(session.id)}">Encerrar</button>`}</td></tr>`
+					),
+					"Nenhuma sessão ativa."
+				)}`;
+				host.querySelectorAll("[data-revoke-session]").forEach((button) =>
+					button.addEventListener("click", async () => {
+						try {
+							await api.delete(`/api/auth/sessions/${button.dataset.revokeSession}`);
+							PP.toast("Sessão encerrada.", "success");
+							await loadSessions();
+						} catch (error) {
+							PP.toast(error.message, "error");
+						}
+					})
+				);
+			} catch (error) {
+				host.innerHTML = PP.errorState(error.message);
+				host.querySelector("[data-retry]")?.addEventListener("click", loadSessions);
+			}
+		}
+		document.querySelector("#revoke-others").addEventListener("click", async () => {
+			try {
+				const result = await api.post("/api/auth/sessions/revoke-others");
+				PP.toast(`${result.sessionsEnded} sessão(ões) encerrada(s).`, "success");
+				await loadSessions();
+			} catch (error) {
+				PP.toast(error.message, "error");
+			}
+		});
+		document.querySelector("#logout-all").addEventListener("click", async () => {
+			if (
+				!(await PP.confirmAction(
+					"Sair de todos os aparelhos",
+					"Todas as sessões, inclusive esta, serão encerradas. Você precisará entrar de novo.",
+					"Sair de todos",
+					true
+				))
+			)
+				return;
+			try {
+				await api.post("/api/auth/logout-all");
+			} catch {
+				/* sessao ja encerrada */
+			}
+			PP.clearSession();
+			window.location.href = "/";
+		});
+
+		async function loadMfa() {
+			const host = document.querySelector("#mfa-panel");
+			const badge = document.querySelector("#mfa-status");
+			try {
+				const status = await api.get("/api/auth/mfa");
+				badge.textContent = status.enabled ? "Ativa" : "Desativada";
+				badge.className = `table-status ${status.enabled ? "green" : "orange"}`;
+				if (!status.enabled) {
+					host.innerHTML = `<p class="muted">Além da senha, o acesso passa a pedir um código de 6 dígitos gerado no celular. Mesmo que alguém descubra sua senha, não consegue entrar.${status.required ? " <strong>Obrigatória para o seu perfil.</strong>" : ""}</p><button class="button button-primary" type="button" id="mfa-start" data-track="mfa-ativar">Ativar verificação em duas etapas</button>`;
+					host.querySelector("#mfa-start").addEventListener("click", () =>
+						PP.mfaEnrollment(host, {
+							onDone: () => {
+								PP.toast("Verificação em duas etapas ativada. Os outros aparelhos saíram da conta.", "success");
+								loadMfa();
+								loadSessions();
+							},
+							onCancel: loadMfa
+						})
+					);
+					return;
+				}
+				host.innerHTML = `<p class="muted">Restam <strong>${esc(status.recoveryCodesRemaining)}</strong> código(s) de recuperação.${status.recoveryCodesRemaining <= 3 ? " Gere novos códigos para não ficar sem acesso se perder o celular." : ""}</p><div class="form-actions"><button class="button button-secondary" type="button" id="mfa-codes">Gerar novos códigos de recuperação</button>${status.required ? "" : '<button class="button button-danger" type="button" id="mfa-disable">Desativar</button>'}</div>`;
+				host.querySelector("#mfa-codes").addEventListener("click", async () => {
+					const answer = await PP.dialog({
+						title: "Gerar novos códigos",
+						body: '<p>Os códigos antigos deixam de valer.</p><label>Código atual do aplicativo<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required /></label>',
+						confirmLabel: "Gerar"
+					});
+					if (!answer) return;
+					try {
+						const result = await api.post("/api/auth/mfa/recovery-codes", { code: answer.code });
+						PP.showRecoveryCodes(host, result.recoveryCodes, loadMfa, "Concluir");
+					} catch (error) {
+						PP.toast(error.message, "error");
+					}
+				});
+				host.querySelector("#mfa-disable")?.addEventListener("click", async () => {
+					const answer = await PP.dialog({
+						title: "Desativar verificação em duas etapas",
+						body: '<label>Senha<input name="password" type="password" autocomplete="current-password" required /></label><label>Código atual do aplicativo<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required /></label>',
+						confirmLabel: "Desativar",
+						danger: true
+					});
+					if (!answer) return;
+					try {
+						await api.post("/api/auth/mfa/disable", answer);
+						PP.toast("Verificação em duas etapas desativada.", "success");
+						await loadMfa();
+					} catch (error) {
+						PP.toast(error.message, "error");
+					}
+				});
+			} catch (error) {
+				host.innerHTML = PP.errorState(error.message);
+				host.querySelector("[data-retry]")?.addEventListener("click", loadMfa);
+			}
+		}
+		await Promise.all([loadSessions(), loadMfa()]);
 	}
 
 	// ------------------------------------------------------------------ Usuarios
@@ -359,11 +530,11 @@ document.head.appendChild(sharedShellScript);
 			section(
 				"Acessos",
 				"Usuários e perfis",
-				`<form id="create-user-form" class="create-user-form" novalidate><div class="editor-grid"><label>Nome<input name="name" required /></label><label>E-mail<input name="email" type="email" required /></label><label>Senha inicial<input name="password" type="password" minlength="8" autocomplete="new-password" placeholder="Ou envie um convite" /></label><label>Perfil<select name="role">${roleOptions}</select></label>${isAdmin ? `<label>Time<select name="managerId">${managerOptions(null)}</select></label>` : ""}</div><label class="inline-check"><input type="checkbox" name="invite" checked /> Enviar convite por e-mail (a pessoa cria a própria senha; o link vale 72 h)</label><div class="form-actions"><p id="create-user-feedback" class="feedback" role="alert"></p><button class="button button-primary" type="submit">Criar conta <span>+</span></button></div></form>${table(
+				`<form id="create-user-form" class="create-user-form" novalidate><div class="editor-grid"><label>Nome<input name="name" required /></label><label>E-mail<input name="email" type="email" required /></label><label>Senha inicial (mín. 12 caracteres)<input name="password" type="password" minlength="12" maxlength="72" autocomplete="new-password" placeholder="Ou envie um convite" /></label><label>Perfil<select name="role">${roleOptions}</select></label>${isAdmin ? `<label>Time<select name="managerId">${managerOptions(null)}</select></label>` : ""}</div><label class="inline-check"><input type="checkbox" name="invite" checked /> Enviar convite por e-mail (a pessoa cria a própria senha; o link vale 72 h)</label><div class="form-actions"><p id="create-user-feedback" class="feedback" role="alert"></p><button class="button button-primary" type="submit">Criar conta <span>+</span></button></div></form>${table(
 					["Nome", "E-mail", "Perfil", "Time", "Status", "Ação"],
 					data.users.map(
 						(user) =>
-							`<tr><td><strong>${esc(user.name)}</strong></td><td>${esc(user.email)}</td><td>${esc(data.roles[user.role] || user.role)}</td><td>${isAdmin && user.role === "operator" ? `<select data-transfer-user-id="${esc(user.id)}" aria-label="Time de ${esc(user.name)}">${managerOptions(user.managerId)}</select>` : esc(user.managerName || (user.role === "manager" ? "—" : "Sem time"))}</td><td><span class="table-status ${user.active ? "green" : "red"}">${user.active ? "Ativo" : "Bloqueado"}</span></td><td>${user.id === me.id ? "Conta atual" : `<div class="actions-cell"><button class="button button-secondary compact-button" type="button" data-status-user="${esc(user.id)}" data-active="${!user.active}" data-name="${esc(user.name)}">${user.active ? "Bloquear" : "Ativar"}</button>${isAdmin ? `<button class="button button-secondary compact-button" type="button" data-edit-user="${esc(user.id)}">Editar</button><button class="button button-secondary compact-button" type="button" data-reset-user="${esc(user.id)}" data-name="${esc(user.name)}">Redefinir senha</button>` : ""}${user.active ? `<button class="button button-secondary compact-button" type="button" data-invite-user="${esc(user.id)}" data-name="${esc(user.name)}">Reenviar convite</button>` : ""}</div>`}</td></tr>`
+							`<tr><td><strong>${esc(user.name)}</strong>${user.mfaEnabled || user.mustChangePassword ? `<div class="badge-row">${user.mfaEnabled ? '<span class="table-status green">MFA</span>' : ""}${user.mustChangePassword ? '<span class="table-status orange">Troca de senha pendente</span>' : ""}</div>` : ""}</td><td>${esc(user.email)}</td><td>${esc(data.roles[user.role] || user.role)}</td><td>${isAdmin && user.role === "operator" ? `<select data-transfer-user-id="${esc(user.id)}" aria-label="Time de ${esc(user.name)}">${managerOptions(user.managerId)}</select>` : esc(user.managerName || (user.role === "manager" ? "—" : "Sem time"))}</td><td><span class="table-status ${user.active ? "green" : "red"}">${user.active ? "Ativo" : "Bloqueado"}</span></td><td>${user.id === me.id ? "Conta atual" : `<div class="actions-cell"><button class="button button-secondary compact-button" type="button" data-status-user="${esc(user.id)}" data-active="${!user.active}" data-name="${esc(user.name)}">${user.active ? "Bloquear" : "Ativar"}</button><button class="button button-secondary compact-button" type="button" data-revoke-user="${esc(user.id)}" data-name="${esc(user.name)}">Encerrar sessões</button><button class="button button-secondary compact-button" type="button" data-unlock-user="${esc(user.id)}" data-name="${esc(user.name)}">Desbloquear login</button>${user.active ? `<button class="button button-secondary compact-button" type="button" data-invite-user="${esc(user.id)}" data-name="${esc(user.name)}">Reenviar convite</button>` : ""}${isAdmin ? `<button class="button button-secondary compact-button" type="button" data-edit-user="${esc(user.id)}">Editar</button><button class="button button-secondary compact-button" type="button" data-reset-user="${esc(user.id)}" data-name="${esc(user.name)}">Redefinir senha</button>${user.mfaEnabled ? `<button class="button button-secondary compact-button" type="button" data-mfa-reset="${esc(user.id)}" data-name="${esc(user.name)}">Remover MFA</button>` : ""}` : ""}</div>`}</td></tr>`
 					)
 				)}`,
 				`<span class="process-status">${data.users.length} usuários</span>`
@@ -438,13 +609,35 @@ document.head.appendChild(sharedShellScript);
 				button.addEventListener("click", async () => {
 					const answer = await PP.dialog({
 						title: `Redefinir senha de ${button.dataset.name}`,
-						body: '<label>Nova senha provisória (mín. 8 caracteres)<input name="password" type="password" minlength="8" autocomplete="new-password" required /></label><p class="muted">As sessões atuais do usuário serão encerradas.</p>',
+						body: '<label>Nova senha provisória (mín. 12 caracteres)<input name="password" type="password" minlength="12" maxlength="72" autocomplete="new-password" required /></label><p class="muted">Passe a senha à pessoa por um canal seguro. As sessões atuais serão encerradas e ela terá de criar uma senha pessoal no próximo acesso.</p>',
 						confirmLabel: "Redefinir"
 					});
 					if (!answer) return;
 					try {
 						await api.post(`/api/users/${button.dataset.resetUser}/reset-password`, { password: answer.password });
-						PP.toast("Senha redefinida.", "success");
+						PP.toast("Senha provisória definida.", "success");
+						await usersPage();
+					} catch (error) {
+						PP.toast(error.message, "error");
+					}
+				})
+			);
+		content()
+			.querySelectorAll("[data-revoke-user]")
+			.forEach((button) =>
+				button.addEventListener("click", async () => {
+					if (
+						!(await PP.confirmAction(
+							"Encerrar sessões",
+							`${button.dataset.name} sairá da conta em todos os aparelhos (use em caso de aparelho perdido ou suspeita de acesso indevido).`,
+							"Encerrar",
+							true
+						))
+					)
+						return;
+					try {
+						const result = await api.post(`/api/users/${button.dataset.revokeUser}/sessions/revoke`);
+						PP.toast(`${result.sessionsEnded} sessão(ões) encerrada(s).`, "success");
 					} catch (error) {
 						PP.toast(error.message, "error");
 					}
@@ -473,6 +666,40 @@ document.head.appendChild(sharedShellScript);
 					}
 				})
 			);
+		content()
+			.querySelectorAll("[data-unlock-user]")
+			.forEach((button) =>
+				button.addEventListener("click", async () => {
+					try {
+						const result = await api.post(`/api/users/${button.dataset.unlockUser}/unlock-login`);
+						PP.toast(result.cleared ? `Login de ${button.dataset.name} desbloqueado.` : `${button.dataset.name} não estava bloqueado.`, "success");
+					} catch (error) {
+						PP.toast(error.message, "error");
+					}
+				})
+			);
+		content()
+			.querySelectorAll("[data-mfa-reset]")
+			.forEach((button) =>
+				button.addEventListener("click", async () => {
+					if (
+						!(await PP.confirmAction(
+							"Remover verificação em duas etapas",
+							`Use quando ${button.dataset.name} perdeu o celular e os códigos de recuperação. Confirme a identidade da pessoa antes. Ela sairá de todos os aparelhos.`,
+							"Remover MFA",
+							true
+						))
+					)
+						return;
+					try {
+						await api.post(`/api/users/${button.dataset.mfaReset}/mfa/reset`);
+						PP.toast("MFA removido.", "success");
+						await usersPage();
+					} catch (error) {
+						PP.toast(error.message, "error");
+					}
+				})
+			);
 		document.querySelector("#create-user-form").addEventListener("submit", async (event) => {
 			event.preventDefault();
 			const form = event.currentTarget;
@@ -481,7 +708,7 @@ document.head.appendChild(sharedShellScript);
 			feedback().textContent = "";
 			try {
 				const invite = form.invite.checked;
-				if (!invite && form.password.value.length < 8) throw new Error("Defina uma senha inicial com 8 caracteres ou marque o envio de convite.");
+				if (!invite && form.password.value.length < 12) throw new Error("Defina uma senha inicial com 12 caracteres ou marque o envio de convite.");
 				const result = await api.post("/api/users", {
 					name: form.name.value,
 					email: form.email.value,
@@ -542,35 +769,55 @@ document.head.appendChild(sharedShellScript);
 		await render();
 	}
 
-	const AUDIT_LABELS = {
-		USER_CREATED: "Usuário criado",
-		USER_ACTIVATED: "Usuário ativado",
-		USER_DEACTIVATED: "Usuário bloqueado",
-		TEAM_TRANSFERRED: "Time alterado",
-		USER_UPDATED: "Usuário editado",
-		PASSWORD_RESET: "Senha redefinida"
+	// Auditoria geral (P2): login, falhas, sessoes, MFA, usuarios, configuracoes e eventos de processos, com IP.
+	const auditDetails = (item) => {
+		const details = item.details || {};
+		if (item.action === "CASE_EVENT") {
+			const changes = details.changes?.changes
+				? Object.entries(details.changes.changes)
+						.map(([field, change]) => `${field}: ${change.before ?? "—"} → ${change.after ?? "—"}`)
+						.join("; ")
+				: "";
+			return [details.description, changes].filter(Boolean).join(" · ");
+		}
+		return Object.entries(details)
+			.filter(([, value]) => value !== null && typeof value !== "object")
+			.map(([key, value]) => `${key}: ${value}`)
+			.join(", ");
 	};
 	async function auditPage() {
-		const data = await api.get("/api/users/audit");
+		const params = new URLSearchParams(window.location.search);
+		const query = new URLSearchParams();
+		for (const key of ["action", "caseNumber", "from", "to"]) if (params.get(key)) query.set(key, params.get(key));
+		const data = await api.get(`/api/audit?${query}`);
+		const actionOptions = Object.entries(data.actions)
+			.map(([code, label]) => `<option value="${esc(code)}" ${params.get("action") === code ? "selected" : ""}>${esc(label)}</option>`)
+			.join("");
+		const target = (item) =>
+			item.caseNumber
+				? `<a href="/caso.html?id=${encodeURIComponent(item.caseNumber)}">${esc(item.caseNumber)}</a>`
+				: esc(item.targetName || (item.entityType === "login" ? item.entityId : item.entityType === "setting" ? item.entityId : "") || "—");
 		set(
 			section(
 				"Rastreabilidade",
-				"Auditoria de usuários",
-				table(
-					["Quando", "Quem", "Ação", "Usuário afetado", "Detalhes"],
+				"Auditoria",
+				`<form id="audit-filters" class="audit-filters"><label>Ação<select name="action"><option value="">Todas</option>${actionOptions}</select></label><label>Processo<input name="caseNumber" value="${esc(params.get("caseNumber") || "")}" placeholder="Ex.: GAR-2026-0045" /></label><label>De<input name="from" type="date" value="${esc(params.get("from") || "")}" /></label><label>Até<input name="to" type="date" value="${esc(params.get("to") || "")}" /></label><button class="button button-primary compact-button" type="submit">Filtrar</button><a class="button button-secondary compact-button" href="/auditoria.html">Limpar</a></form>${table(
+					["Quando", "Quem", "Ação", "Alvo", "IP", "Detalhes"],
 					data.audit.map(
 						(item) =>
-							`<tr><td>${esc(PP.formatDateTime(item.createdAt))}</td><td>${esc(item.actorName || "—")}</td><td>${esc(AUDIT_LABELS[item.action] || item.action)}</td><td>${esc(item.targetName || "—")}</td><td class="muted">${esc(
-								Object.entries(item.details || {})
-									.map(([key, value]) => `${key}: ${value}`)
-									.join(", ")
-							)}</td></tr>`
+							`<tr><td>${esc(PP.formatDateTime(item.createdAt))}</td><td>${esc(item.actorName || "—")}</td><td>${esc(data.actions[item.action] || item.action)}</td><td>${target(item)}</td><td title="${esc(item.userAgent || "")}">${esc(item.ip || "—")}</td><td class="muted audit-details">${esc(auditDetails(item))}</td></tr>`
 					),
 					"Nenhum registro de auditoria."
-				),
-				`<span class="process-status">${data.audit.length} registros</span>`
+				)}`,
+				`<span class="process-status">${data.audit.length} registros${data.audit.length >= 200 ? " (mais recentes)" : ""}</span>`
 			)
 		);
+		document.querySelector("#audit-filters").addEventListener("submit", (event) => {
+			event.preventDefault();
+			const next = new URLSearchParams();
+			for (const [key, value] of new FormData(event.currentTarget)) if (String(value).trim()) next.set(key, String(value).trim());
+			window.location.search = next.toString();
+		});
 	}
 
 	// --------------------------------------------------------------- Integracoes
@@ -600,7 +847,7 @@ document.head.appendChild(sharedShellScript);
 				section(
 					"Eventos",
 					"Webhooks",
-					`<form id="webhook-form" class="create-user-form" novalidate><div class="editor-grid"><label>Nome<input name="name" required maxlength="120" /></label><label>Endpoint HTTPS<input name="endpointUrl" type="url" placeholder="https://" required /></label><label>Segredo (assinatura HMAC)<input name="secret" type="password" autocomplete="off" required /></label><fieldset style="border:0;padding:0"><legend style="font-size:11px;font-weight:700">Eventos</legend>${meta.webhookEvents.map((event) => `<label style="display:flex;gap:6px;font-weight:400"><input type="checkbox" name="events" value="${esc(event)}" checked /> ${esc(event)}</label>`).join("")}</fieldset></div><div class="form-actions"><p id="webhook-feedback" class="feedback" role="alert"></p><button class="button button-primary" type="submit">Criar webhook</button></div></form>${table(
+					`<form id="webhook-form" class="create-user-form" novalidate><div class="editor-grid"><label>Nome<input name="name" required maxlength="120" /></label><label>Endpoint HTTPS<input name="endpointUrl" type="url" placeholder="https://" required /></label><label>Segredo (assinatura HMAC)<input name="secret" type="password" autocomplete="off" required /></label><fieldset class="plain-fieldset"><legend class="plain-legend">Eventos</legend>${meta.webhookEvents.map((event) => `<label class="checkbox-row"><input type="checkbox" name="events" value="${esc(event)}" checked /> ${esc(event)}</label>`).join("")}</fieldset></div><div class="form-actions"><p id="webhook-feedback" class="feedback" role="alert"></p><button class="button button-primary" type="submit">Criar webhook</button></div></form>${table(
 						["Nome", "Endpoint", "Eventos", "Status", "Ação"],
 						webhooks.map(
 							(hook) =>
@@ -686,11 +933,11 @@ document.head.appendChild(sharedShellScript);
 				`<nav class="tabs" role="tablist"><button role="tab" class="${isCustomers ? "active" : ""}" data-tab="customers">Clientes</button><button role="tab" class="${isCustomers ? "" : "active"}" data-tab="products">Produtos</button></nav>${section(
 					isCustomers ? "Clientes" : "Produtos",
 					isCustomers ? "Cadastro de clientes" : "Cadastro de produtos",
-					`<form id="registry-form" class="create-user-form" novalidate><div class="editor-grid">${isCustomers ? '<label>Nome ou razão social<input name="name" required maxlength="180" /></label><label>CPF ou CNPJ<input name="document" /></label><label>E-mail<input name="email" type="email" /></label><label>Telefone<input name="phone" /></label>' : '<label>Código<input name="code" required maxlength="80" /></label><label>Descrição<input name="description" required maxlength="180" /></label>'}</div><div class="form-actions"><p id="registry-feedback" class="feedback" role="alert"></p><button class="button button-primary" type="submit">Cadastrar</button></div></form><div class="inline-form" style="margin:12px 0"><label>Buscar<input id="registry-search" type="search" value="${esc(q)}" placeholder="${isCustomers ? "Nome ou documento" : "Código ou descrição"}" /></label></div>${table(
+					`<form id="registry-form" class="create-user-form" novalidate><div class="editor-grid">${isCustomers ? '<label>Nome ou razão social<input name="name" required maxlength="180" /></label><label>CPF ou CNPJ<input name="document" /></label><label>E-mail<input name="email" type="email" /></label><label>Telefone<input name="phone" /></label>' : '<label>Código<input name="code" required maxlength="80" /></label><label>Descrição<input name="description" required maxlength="180" /></label>'}</div><div class="form-actions"><p id="registry-feedback" class="feedback" role="alert"></p><button class="button button-primary" type="submit">Cadastrar</button></div></form><div class="inline-form my-12"><label>Buscar<input id="registry-search" type="search" value="${esc(q)}" placeholder="${isCustomers ? "Nome ou documento" : "Código ou descrição"}" /></label></div>${table(
 						isCustomers ? ["Nome", "CPF/CNPJ", "E-mail", "Telefone", "Status", ""] : ["Código", "Descrição", "Status", ""],
 						rows.map(
 							(row) =>
-								`<tr>${isCustomers ? `<td><strong>${esc(row.name)}</strong></td><td>${esc(PP.formatDocument(row.document || ""))}</td><td>${esc(row.email || "")}</td><td>${esc(row.phone || "")}</td>` : `<td><strong>${esc(row.code)}</strong></td><td>${esc(row.description)}</td>`}<td><span class="table-status ${row.active ? "green" : "red"}">${row.active ? "Ativo" : "Inativo"}</span></td><td>${canManage ? `<div class="actions-cell"><button class="button button-secondary compact-button" type="button" data-edit="${esc(row.id)}">Editar</button><button class="button button-secondary compact-button" type="button" data-active="${esc(row.id)}" data-value="${!row.active}">${row.active ? "Inativar" : "Reativar"}</button></div>` : ""}</td></tr>`
+								`<tr>${isCustomers ? `<td><strong>${esc(row.name)}</strong></td><td>${esc(PP.maskDocument(row.document || ""))}</td><td>${esc(row.email || "")}</td><td>${esc(row.phone || "")}</td>` : `<td><strong>${esc(row.code)}</strong></td><td>${esc(row.description)}</td>`}<td><span class="table-status ${row.active ? "green" : "red"}">${row.active ? "Ativo" : "Inativo"}</span></td><td>${canManage ? `<div class="actions-cell"><button class="button button-secondary compact-button" type="button" data-edit="${esc(row.id)}">Editar</button><button class="button button-secondary compact-button" type="button" data-active="${esc(row.id)}" data-value="${!row.active}">${row.active ? "Inativar" : "Reativar"}</button></div>` : ""}</td></tr>`
 						),
 						"Nada cadastrado ainda."
 					)}`
@@ -812,7 +1059,7 @@ document.head.appendChild(sharedShellScript);
 			section(
 				"Lote",
 				"Importar pedidos e processos",
-				`<p class="muted">Envie um arquivo CSV (separador ; ou ,) com as colunas: <code>${IMPORT_COLUMNS.join(", ")}</code>. Máximo de 500 linhas. Base de troca exige <em>exchangeReason</em> e <em>itemCondition</em>.</p><div class="inline-form"><label>Arquivo CSV<input type="file" id="import-file" accept=".csv,text/csv" /></label><button class="button button-secondary compact-button" type="button" id="import-template">Baixar modelo</button></div><div id="import-preview" style="margin-top:16px"></div>`
+				`<p class="muted">Envie um arquivo CSV (separador ; ou ,) com as colunas: <code>${IMPORT_COLUMNS.join(", ")}</code>. Máximo de 500 linhas. Base de troca exige <em>exchangeReason</em> e <em>itemCondition</em>.</p><div class="inline-form"><label>Arquivo CSV<input type="file" id="import-file" accept=".csv,text/csv" /></label><button class="button button-secondary compact-button" type="button" id="import-template">Baixar modelo</button></div><div id="import-preview" class="mt-16"></div>`
 			)
 		);
 		document.querySelector("#import-template").addEventListener("click", () => {

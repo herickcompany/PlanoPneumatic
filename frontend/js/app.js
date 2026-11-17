@@ -10,6 +10,36 @@ const loginForm = document.querySelector("#login-form");
 const feedback = document.querySelector("#login-feedback");
 let refreshTimer = null;
 
+// Etapas da tela de acesso: login -> (codigo MFA) -> (troca obrigatoria de senha) -> (ativacao obrigatoria do MFA).
+const mfaForm = document.querySelector("#mfa-form");
+const changePasswordForm = document.querySelector("#change-password-form");
+const mfaEnroll = document.querySelector("#mfa-enroll");
+const AUTH_STEPS = {
+	login: [loginForm, "Entrar no sistema", "Use suas credenciais corporativas para continuar."],
+	mfa: [mfaForm, "Verificação em duas etapas", "Abra o aplicativo autenticador no celular e digite o código de 6 dígitos."],
+	change: [
+		changePasswordForm,
+		"Crie sua senha pessoal",
+		"Sua senha atual é provisória (definida pelo administrador ou na instalação). Troque-a para continuar."
+	],
+	enroll: [mfaEnroll, "Ative a verificação em duas etapas", "Para o seu perfil, o acesso exige um código do celular além da senha."],
+	forgot: [document.querySelector("#forgot-form"), "Recuperar acesso", "Enviaremos um link para criar uma nova senha."],
+	reset: [document.querySelector("#reset-form"), "Criar nova senha", "Escolha a senha que você vai usar daqui para frente."]
+};
+let mfaChallenge = null;
+
+function showAuthStep(step) {
+	for (const [name, [element]] of Object.entries(AUTH_STEPS)) element?.classList.toggle("hidden", name !== step);
+	document.querySelector("#mfa-enroll-logout")?.classList.toggle("hidden", step !== "enroll");
+	const [element, title, subtitle] = AUTH_STEPS[step];
+	document.querySelector("#login-title").textContent = title;
+	document.querySelector("#login-subtitle").textContent = subtitle;
+	element?.querySelectorAll(".feedback").forEach((item) => {
+		item.textContent = "";
+	});
+	(element?.querySelector("input:not([type=hidden])") || element)?.focus?.();
+}
+
 function showLogin(message = "") {
 	try {
 		message = message || sessionStorage.getItem(PP.SESSION_EXPIRED_KEY) || "";
@@ -18,9 +48,25 @@ function showLogin(message = "") {
 		/* sem sessionStorage */
 	}
 	clearInterval(refreshTimer);
+	mfaChallenge = null;
 	loginView.classList.remove("hidden");
 	dashboardView.classList.add("hidden");
+	showAuthStep("login");
 	feedback.textContent = message;
+}
+
+// Depois da senha (e do codigo MFA, se houver): resolve pendencias antes de abrir o sistema.
+async function afterAuthenticated(user) {
+	PP.setSession({ user });
+	loginView.classList.remove("hidden");
+	dashboardView.classList.add("hidden");
+	if (user.mustChangePassword) return showAuthStep("change");
+	if (user.mfaEnrollmentRequired) {
+		showAuthStep("enroll");
+		return PP.mfaEnrollment(mfaEnroll, { onDone: async () => afterAuthenticated((await apiRequest("/api/auth/me")).user) });
+	}
+	window.dispatchEvent(new Event("pp-session-changed"));
+	return loadDashboard(user);
 }
 
 function showApiUnavailable() {
@@ -85,7 +131,7 @@ function renderInsights(data) {
 		data.byType
 			.map(
 				(item) =>
-					`<div class="distribution-row"><div><strong>${esc(item.label)}</strong><span>${esc(item.value)}</span></div><i style="width:${Math.max(8, (item.value / maxType) * 100)}%"></i></div>`
+					`<div class="distribution-row"><div><strong>${esc(item.label)}</strong><span>${esc(item.value)}</span></div><i data-w="${Math.max(8, (item.value / maxType) * 100)}"></i></div>`
 			)
 			.join("") || '<p class="muted">Sem dados no período.</p>';
 	const maxEvolution = Math.max(...data.evolution.map((item) => item.total), 1);
@@ -93,7 +139,7 @@ function renderInsights(data) {
 		data.evolution
 			.map(
 				(item) =>
-					`<div class="chart-column" title="${esc(item.date)}: ${esc(item.total)} processos"><span style="height:${Math.max(8, (item.total / maxEvolution) * 100)}%"></span><small>${esc(String(item.date).slice(5))}</small></div>`
+					`<div class="chart-column" title="${esc(item.date)}: ${esc(item.total)} processos"><span data-h="${Math.max(8, (item.total / maxEvolution) * 100)}"></span><small>${esc(String(item.date).slice(5))}</small></div>`
 			)
 			.join("") || '<p class="muted">Sem dados no período.</p>';
 	const alertList = document.querySelector("#alert-list");
@@ -125,7 +171,7 @@ function renderAttention(items) {
 			.slice(0, 5)
 			.map(
 				(item) =>
-					`<li class="action-item"><a href="/caso.html?id=${encodeURIComponent(item.id)}" style="display:contents;color:inherit;text-decoration:none"><span class="action-icon ${item.risk === "Alto" ? "red" : "orange"}" aria-hidden="true">${item.risk === "Alto" ? "!" : "◷"}</span><div><strong>${esc(item.id)} · ${esc(item.description)}</strong><small>${esc(item.client)} · ${esc(item.responsible)}</small></div><span aria-hidden="true">→</span></a></li>`
+					`<li class="action-item"><a class="action-link" href="/caso.html?id=${encodeURIComponent(item.id)}"><span class="action-icon ${item.risk === "Alto" ? "red" : "orange"}" aria-hidden="true">${item.risk === "Alto" ? "!" : "◷"}</span><div><strong>${esc(item.id)} · ${esc(item.description)}</strong><small>${esc(item.client)} · ${esc(item.responsible)}</small></div><span aria-hidden="true">→</span></a></li>`
 			)
 			.join("") || `<li class="empty-action">Nenhuma próxima ação no seu escopo.</li>`;
 }
@@ -146,12 +192,12 @@ async function renderAdvanced() {
 		panel.innerHTML = `
       <div class="panel-heading"><div><p class="eyebrow">Análise avançada</p><h2>Evolução mensal e qualidade</h2></div></div>
       <div class="content-grid">
-        <article><p class="eyebrow">Comparativo mensal</p><div class="bar-chart" role="img" aria-label="Processos por mês">${data.monthly.map((item) => `<div class="chart-column" title="${esc(item.month)}: ${esc(item.total)} abertos, ${esc(item.completed)} concluídos"><span style="height:${Math.max(8, (item.total / maxMonth) * 100)}%"></span><small>${esc(item.month.slice(2))}</small></div>`).join("") || '<p class="muted">Sem dados.</p>'}</div></article>
+        <article><p class="eyebrow">Comparativo mensal</p><div class="bar-chart" role="img" aria-label="Processos por mês">${data.monthly.map((item) => `<div class="chart-column" title="${esc(item.month)}: ${esc(item.total)} abertos, ${esc(item.completed)} concluídos"><span data-h="${Math.max(8, (item.total / maxMonth) * 100)}"></span><small>${esc(item.month.slice(2))}</small></div>`).join("") || '<p class="muted">Sem dados.</p>'}</div></article>
         <article><p class="eyebrow">Tempo médio por etapa (dias)</p>${data.stageDurations.map((item) => `<div class="distribution-row"><div><strong>${esc(PP.statusLabel(item.stage))}</strong><span>${esc(item.average_days)}</span></div></div>`).join("") || '<p class="muted">Ainda sem histórico suficiente.</p>'}</article>
       </div>
-      <div class="content-grid" style="margin-top:16px">
+      <div class="content-grid mt-16">
         <article><p class="eyebrow">Reincidência de defeito (produtos com 2+ ocorrências)</p>${data.recurrence.map((item) => `<div class="distribution-row"><div><strong>${esc(item.productCode)} · ${esc(item.product)}</strong><span>${esc(item.total)}</span></div></div>`).join("") || '<p class="muted">Nenhuma reincidência.</p>'}</article>
-        <article><p class="eyebrow">Custo estimado de garantia</p><strong style="font-size:24px">${esc(PP.money(data.warrantyCost.estimated))}</strong><p class="muted">${esc(data.warrantyCost.approved)} garantia(s) procedente(s) com valor unitário informado.</p><p class="eyebrow">Metas do mês</p>${data.goals.map((goal) => `<div class="distribution-row"><div><strong>${esc(goal.managerName)}</strong><span>${esc(goal.achieved)}/${esc(goal.monthlyTarget)}</span></div><i style="width:${Math.min(100, (goal.achieved / goal.monthlyTarget) * 100)}%"></i></div>`).join("") || '<p class="muted">Sem metas definidas (Desempenho por time).</p>'}</article>
+        <article><p class="eyebrow">Custo estimado de garantia</p><strong class="stat-figure">${esc(PP.money(data.warrantyCost.estimated))}</strong><p class="muted">${esc(data.warrantyCost.approved)} garantia(s) procedente(s) com valor unitário informado.</p><p class="eyebrow">Metas do mês</p>${data.goals.map((goal) => `<div class="distribution-row"><div><strong>${esc(goal.managerName)}</strong><span>${esc(goal.achieved)}/${esc(goal.monthlyTarget)}</span></div><i data-w="${Math.min(100, (goal.achieved / goal.monthlyTarget) * 100)}"></i></div>`).join("") || '<p class="muted">Sem metas definidas (Desempenho por time).</p>'}</article>
       </div>`;
 	} catch (error) {
 		panel.innerHTML = `<p class="feedback">${esc(error.message)}</p>`;
@@ -229,17 +275,77 @@ loginForm.addEventListener("submit", async (event) => {
 
 	try {
 		const data = await apiRequest("/api/auth/login", { method: "POST", json: { email: loginForm.email.value, password: loginForm.password.value } });
-		PP.setSession(data);
-		const me = await apiRequest("/api/auth/me");
-		PP.setSession({ ...data, user: me.user });
-		window.dispatchEvent(new Event("pp-session-changed"));
-		await loadDashboard(me.user);
+		loginForm.password.value = "";
+		if (data.mfaRequired) {
+			mfaChallenge = data.challenge;
+			mfaForm.reset();
+			return showAuthStep("mfa");
+		}
+		await afterAuthenticated(data.user);
 	} catch (error) {
 		feedback.textContent = error.message;
 	} finally {
 		submitButton.disabled = false;
 	}
 });
+
+mfaForm.addEventListener("submit", async (event) => {
+	event.preventDefault();
+	const message = mfaForm.querySelector(".feedback");
+	const code = mfaForm.code.value.replace(/\s/g, "");
+	const recoveryCode = mfaForm.recoveryCode.value.trim();
+	message.textContent = "";
+	if (!code && !recoveryCode) {
+		message.textContent = "Digite o código do aplicativo ou um código de recuperação.";
+		return;
+	}
+	const button = mfaForm.querySelector("button[type=submit]");
+	button.disabled = true;
+	try {
+		const data = await apiRequest("/api/auth/mfa/verify", {
+			method: "POST",
+			json: { challenge: mfaChallenge, ...(recoveryCode ? { recoveryCode } : { code }) }
+		});
+		mfaChallenge = null;
+		await afterAuthenticated(data.user);
+	} catch (error) {
+		if (error.body?.code === "MFA_CHALLENGE_EXPIRED" || error.status === 429) return showLogin(error.message);
+		message.textContent = error.message;
+		mfaForm.code.select();
+	} finally {
+		button.disabled = false;
+	}
+});
+
+changePasswordForm.addEventListener("submit", async (event) => {
+	event.preventDefault();
+	const message = changePasswordForm.querySelector(".feedback");
+	const { currentPassword, newPassword, confirmPassword } = changePasswordForm;
+	message.textContent = "";
+	if (newPassword.value.length < 12) {
+		message.textContent = "A nova senha deve ter pelo menos 12 caracteres.";
+		return newPassword.focus();
+	}
+	if (newPassword.value !== confirmPassword.value) {
+		message.textContent = "A confirmação não confere com a nova senha.";
+		return confirmPassword.focus();
+	}
+	const button = changePasswordForm.querySelector("button[type=submit]");
+	button.disabled = true;
+	try {
+		await apiRequest("/api/auth/change-password", { method: "POST", json: { currentPassword: currentPassword.value, newPassword: newPassword.value } });
+		changePasswordForm.reset();
+		PP.toast("Senha alterada.", "success");
+		await afterAuthenticated((await apiRequest("/api/auth/me")).user);
+	} catch (error) {
+		message.textContent = error.message;
+	} finally {
+		button.disabled = false;
+	}
+});
+
+document.querySelectorAll("[data-auth-back]").forEach((button) => button.addEventListener("click", () => showLogin()));
+document.querySelectorAll("[data-auth-logout]").forEach((button) => button.addEventListener("click", () => PP.logout()));
 
 PP.bindLogout();
 
@@ -265,13 +371,10 @@ pwaInstallButton?.addEventListener("click", async () => {
 });
 
 // Esqueci a senha, redefinicao (?reset=) e primeiro acesso por convite (?convite=).
-const authForms = { login: loginForm, forgot: document.querySelector("#forgot-form"), reset: document.querySelector("#reset-form") };
-const authTitles = { login: "Entrar no sistema", forgot: "Recuperar acesso", reset: "Criar nova senha" };
+const authForms = { forgot: AUTH_STEPS.forgot[0], reset: AUTH_STEPS.reset[0] };
 function showAuthView(name, title) {
-	Object.entries(authForms).forEach(([key, form]) => form?.classList.toggle("hidden", key !== name));
-	document.querySelector("#login-title").textContent = title || authTitles[name];
-	document.querySelector("#login-title + .muted")?.classList.toggle("hidden", name !== "login");
-	authForms[name]?.querySelector("input")?.focus();
+	showAuthStep(name);
+	if (title) document.querySelector("#login-title").textContent = title;
 }
 document.querySelectorAll("[data-auth-view]").forEach((button) =>
 	button.addEventListener("click", () => {
@@ -302,8 +405,8 @@ authForms.reset?.addEventListener("submit", async (event) => {
 	event.preventDefault();
 	const form = event.currentTarget;
 	const note = document.querySelector("#reset-feedback");
-	if (form.password.value.length < 8) {
-		note.textContent = "A senha precisa ter pelo menos 8 caracteres.";
+	if (form.password.value.length < 12) {
+		note.textContent = "A senha precisa ter pelo menos 12 caracteres.";
 		return;
 	}
 	if (form.password.value !== form.confirm.value) {
@@ -345,11 +448,10 @@ async function openTokenFlow() {
 (async function bootstrap() {
 	if (await openTokenFlow()) return;
 	const session = PP.getSession();
-	if (!session?.token) return showLogin();
+	if (!session?.user) return showLogin();
 	try {
 		const data = await apiRequest("/api/auth/me");
-		PP.setSession({ ...session, user: data.user });
-		await loadDashboard(data.user);
+		await afterAuthenticated(data.user);
 	} catch (error) {
 		if (error.status === 0) showApiUnavailable();
 		else showLogin();
