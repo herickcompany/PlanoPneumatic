@@ -1,6 +1,6 @@
 # Imagem base: depois de fixar o digest (scripts/pin-docker-digests.sh), o Dependabot (ecossistema docker)
 # abre PR quando sair uma versao nova da imagem.
-FROM node:24-alpine
+FROM node:26-alpine
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
