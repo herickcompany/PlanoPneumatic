@@ -520,9 +520,9 @@ document.head.appendChild(sharedShellScript);
 	async function usersPage() {
 		const data = await api.get("/api/users");
 		const isAdmin = PP.can("users.create.any");
-		const roleOptions = (isAdmin ? Object.keys(data.roles).filter((role) => role !== "admin") : ["operator"])
-			.map((role) => `<option value="${esc(role)}">${esc(data.roles[role])}</option>`)
-			.join("");
+		// Administrador por ultimo, para nunca vir pre-selecionado.
+		const roleKeys = [...Object.keys(data.roles).filter((role) => role !== "admin"), "admin"].filter((role) => data.roles[role]);
+		const roleOptions = (isAdmin ? roleKeys : ["operator"]).map((role) => `<option value="${esc(role)}">${esc(data.roles[role])}</option>`).join("");
 		const managers = data.users.filter((user) => user.role === "manager" && user.active);
 		const managerOptions = (current) =>
 			`<option value="">Sem time</option>${managers.map((manager) => `<option value="${esc(manager.id)}" ${manager.id === current ? "selected" : ""}>${esc(manager.name)}</option>`).join("")}`;
@@ -585,10 +585,7 @@ document.head.appendChild(sharedShellScript);
 					const user = data.users.find((entry) => String(entry.id) === button.dataset.editUser);
 					const answer = await PP.dialog({
 						title: `Editar ${user.name}`,
-						body: `<label>Nome<input name="name" value="${esc(user.name)}" required /></label><label>E-mail<input name="email" type="email" value="${esc(user.email)}" required /></label><label>Perfil<select name="role">${Object.keys(
-							data.roles
-						)
-							.filter((role) => role !== "admin" || user.role === "admin")
+						body: `<label>Nome<input name="name" value="${esc(user.name)}" required /></label><label>E-mail<input name="email" type="email" value="${esc(user.email)}" required /></label><label>Perfil<select name="role">${roleKeys
 							.map((role) => `<option value="${esc(role)}" ${role === user.role ? "selected" : ""}>${esc(data.roles[role])}</option>`)
 							.join("")}</select></label><p class="muted">Mudar o perfil encerra as sessões do usuário.</p>`,
 						confirmLabel: "Salvar"
