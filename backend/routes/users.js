@@ -102,7 +102,8 @@ router.post(
 		const invite = request.body.invite === true;
 		const password = invite ? crypto.randomBytes(24).toString("base64url") : String(request.body.password || "");
 		const role = String(request.body.role || "operator").trim();
-		const allowedRoles = can(request.user, capabilities.CREATE_ANY_ROLE) ? ALL_ROLES.filter((value) => value !== roles.ADMIN) : [roles.OPERATOR];
+		// Administrador cria qualquer perfil, inclusive outro administrador; gerente so cria operador do proprio time.
+		const allowedRoles = can(request.user, capabilities.CREATE_ANY_ROLE) ? ALL_ROLES : [roles.OPERATOR];
 		if (!name || !email || !allowedRoles.includes(role))
 			throw badRequest(invite ? "Informe nome, e-mail e um perfil permitido." : "Informe nome, e-mail, senha inicial e um perfil permitido.");
 		if (name.length > 120 || email.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw badRequest("Nome ou e-mail invalido.");
@@ -110,7 +111,7 @@ router.post(
 		let managerId = null;
 		if (request.user.role === roles.MANAGER) {
 			managerId = role === roles.OPERATOR ? request.user.id : null;
-		} else if (can(request.user, capabilities.TRANSFER_TEAM) && request.body.managerId) {
+		} else if (role !== roles.ADMIN && can(request.user, capabilities.TRANSFER_TEAM) && request.body.managerId) {
 			const parsedManagerId = Number(request.body.managerId);
 			if (Number.isInteger(parsedManagerId)) {
 				const { rows } = await database.query("SELECT id FROM users WHERE id = $1 AND role = 'manager' AND active = TRUE", [parsedManagerId]);

@@ -37,7 +37,7 @@ test("operator cannot list users or assign cases", async () => {
 	assert.equal(assign.status, 403);
 });
 
-test("manager can create an operator but not a manager; admin can create any non-admin role", async () => {
+test("manager can create an operator but not a manager; admin can create any role", async () => {
 	const manager = await h.createUser("manager");
 	const body = { name: "Novo", email: "novo@example.com", password: "Pastilha-de-Freio-Verde-12" };
 	assert.equal((await h.api("POST", "/api/users", { token: manager.token, body: { ...body, role: "operator" } })).status, 201);
@@ -48,6 +48,24 @@ test("manager can create an operator but not a manager; admin can create any non
 	assert.equal(created.body.user.role, "technician");
 	const duplicate = await h.api("POST", "/api/users", { token: admin.token, body: { ...body, email: "tecnico@example.com", role: "operator" } });
 	assert.equal(duplicate.status, 409);
+	assert.equal((await h.api("POST", "/api/users", { token: manager.token, body: { ...body, email: "chefe@example.com", role: "admin" } })).status, 400);
+	const newAdmin = await h.api("POST", "/api/users", {
+		token: admin.token,
+		body: { ...body, email: "chefe@example.com", role: "admin", managerId: manager.id }
+	});
+	assert.equal(newAdmin.status, 201);
+	assert.equal(newAdmin.body.user.role, "admin");
+	assert.equal(newAdmin.body.user.managerId, null, "administrador nao fica em time");
+});
+
+test("admin promotes another user to administrator", async () => {
+	const admin = await h.createUser("admin");
+	const manager = await h.createUser("manager");
+	const promoted = await h.api("PATCH", `/api/users/${manager.id}`, { token: admin.token, body: { role: "admin" } });
+	assert.equal(promoted.status, 200);
+	assert.equal(promoted.body.user.role, "admin");
+	const other = await h.createUser("manager");
+	assert.equal((await h.api("PATCH", `/api/users/${other.id}`, { token: other.token, body: { role: "admin" } })).status, 403);
 });
 
 test("admin edits a user's profile and resets the password", async () => {
