@@ -22,7 +22,9 @@ async function start() {
 	startHousekeeping();
 	startSlaScheduler(config.slaCheckIntervalMs);
 	startOmieScheduler();
+	require("./services/omie").onSchedulerTick(require("./services/omieProducts").retryDue);
 	startReportScheduler();
+	require("./services/carcass").startCarcassScheduler();
 	const server = app.listen(config.port, config.host, () => logEvent("server_started", { host: config.host, port: config.port }));
 
 	let shuttingDown = false;

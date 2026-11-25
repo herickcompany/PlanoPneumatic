@@ -21,6 +21,8 @@ app.use(metrics.metricsMiddleware);
 app.use(securityHeaders);
 app.use(cors);
 app.use("/api", originCheck);
+// Exportar a tabela que esta na tela e abrir uma planilha exportada antes podem passar de 1 MB.
+app.use(["/api/reports/table-export", "/api/reports/import-sheet", "/api/reports/custom/export"], express.json({ limit: "8mb" }));
 app.use(express.json({ limit: "1mb" }));
 // O service worker leva o ID do build: cada deploy invalida o cache do app.
 app.get("/sw.js", (request, response) => {
@@ -60,6 +62,7 @@ app.use("/api/cases", require("./routes/cases").router);
 app.use("/api/reports", require("./routes/reports").router);
 app.use("/api/users", require("./routes/users").router);
 app.use("/api/omie", require("./routes/omie").router);
+app.use("/api/carcass", require("./routes/carcass").router);
 app.use("/api", require("./routes/registry").router);
 app.use("/api", require("./routes/system").router);
 app.use("/api", (request, response) => response.status(404).json({ message: "Rota nao encontrada.", code: "NOT_FOUND", requestId: request.id }));

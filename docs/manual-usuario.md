@@ -19,11 +19,31 @@ Mostra status, prazo (SLA), responsável, etapas, checklist, anexos, linha do te
 ## Histórico
 Filtre por processo, cliente, produto, código, documento, série/lote, tipo, status, responsável e período; marque "Somente meus casos" ou "Somente atrasados". Ordene clicando nos títulos, salve filtros, exporte em XLSX, PDF ou CSV e (supervisor/gerente) atribua vários processos de uma vez.
 
+## Guia do app
+O ícone de **caderno** no topo de toda tela (ou a tecla **F1**) abre o Guia do app já na explicação da tela atual: para que serve, passo a passo e dicas. O guia tem busca e mostra só as telas que o seu perfil acessa.
+
 ## Relatórios
 Resumo, por cliente, por produto (reincidência) e por processo, com os mesmos filtros e exportação. **Desempenho por time** permite definir a meta mensal (gerente/administrador).
+- **Exportar em cada relatório:** toda tabela tem os botões Excel, CSV e PDF, que baixam exatamente o que está na tela.
+- **Abrir planilha (importar para comparar):** carrega um .xlsx ou .csv exportado antes e compara com a tabela atual pela primeira coluna, mostrando o que mudou, o que é novo e o que só existe na planilha. Nada é gravado no sistema.
+- **Construtor de relatórios (gerente/administrador):** escolha a fonte (processos ou eventos), lista ou totais agrupados, colunas/métricas, filtros e ordenação; pré-visualize, salve como modelo (opcionalmente compartilhado com outros gerentes e administradores) e baixe em Excel, CSV ou PDF (até 5.000 linhas). Modelos podem ser exportados e importados como arquivo .json.
 
 ## Cadastros (conforme o perfil)
 Clientes e produtos, importação de pedidos por CSV (modelo para baixar), usuários, auditoria, integrações (webhooks) e configurações (alertas, atualização automática, exigir documentação e SLA por tipo).
+
+## Controle de carcaças (aba Base de troca)
+A aba **Base de troca** tem duas partes: **Registrar troca** (o processo de troca que já existia) e **Controle de carcaças**.
+- Quem recebe uma peça remanufaturada fica devendo a carcaça. A saída é registrada à mão ou vem sozinha das NF-e de saída do Omie com peças marcadas como "Remanufaturada" (em Clientes e produtos), a partir da data definida em "Prazo e Omie".
+- Saldo por cliente e por representante (o representante vem do cadastro do cliente e pode ser trocado em um lançamento), com vencidas e próximo vencimento. O prazo padrão é configurável (30 dias por padrão).
+- Devolução aproveitável abate o saldo; refugada fica registrada e não abate. Ajustes pedem motivo; estorno (gerente/administrador) mantém o histórico.
+- Gerentes e administradores recebem um aviso diário quando há carcaças vencidas.
+
+## Omie (ERP)
+- **Pedidos e notas do Omie:** os dados ficam guardados no app e são atualizados pelo próprio Omie (aviso em tempo real por webhook) e por uma busca automática a cada 10 minutos. A tela abre na hora, se atualiza sozinha a cada 30 segundos e tem o botão "Atualizar agora".
+- **Peça nova vai para o Omie:** ao cadastrar, informe a unidade; a peça fica "Aguardando aprovação". Gerente, supervisor ou administrador aprova (uma ou várias de uma vez), informa o NCM e a peça é criada no Omie com o mesmo código. Se o código já existir lá, os cadastros só são ligados. Erros de dados aparecem na peça para corrigir e reenviar; se o Omie estiver fora do ar, o app tenta de novo sozinho (até 3 vezes).
+
+## Atualização do app
+Ao abrir o app (aba ou janela nova), uma tela de abertura verifica se há versão nova e já atualiza, sem depender do aviso. Durante o uso, uma versão nova aparece como aviso "Nova versão disponível", para não interromper o que você está fazendo.
 
 ## Perfis
 | Perfil | O que faz |
