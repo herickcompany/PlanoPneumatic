@@ -8,6 +8,7 @@ const { optionalText, requiredText, optionalDocument, money } = require("../vali
 const { likeTerm } = require("../services/caseFilters");
 const omie = require("../services/omie");
 const omieProducts = require("../services/omieProducts");
+const salesData = require("../services/salesData");
 
 const router = express.Router();
 router.use(["/customers", "/products", "/representatives"], requireAuth);
@@ -96,6 +97,27 @@ router.get(
 			values
 		);
 		return response.json({ customers: rows });
+	})
+);
+
+// Vendedor e prazo padrao do cliente (pedido de venda).
+router.get(
+	"/customers/:id/sales-defaults",
+	wrap(async (request, response) => {
+		if (!can(request.user, capabilities.CREATE_CASE)) throw forbidden();
+		return response.json(await salesData.customerDefaults(z.coerce.number().int().positive().parse(request.params.id)));
+	})
+);
+
+// Ultimas vendas do produto (para o cliente do pedido e no geral).
+router.get(
+	"/products/sales-history",
+	wrap(async (request, response) => {
+		if (!can(request.user, capabilities.CREATE_CASE)) throw forbidden();
+		const query = z
+			.object({ code: z.string().trim().min(1, "Informe o codigo do produto.").max(80), customerId: z.coerce.number().int().positive().optional() })
+			.parse(request.query);
+		return response.json(await salesData.productHistory(query.code, { customerId: query.customerId }));
 	})
 );
 

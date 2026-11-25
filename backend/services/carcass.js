@@ -224,12 +224,14 @@ async function summary({ groupBy = "customer", q, representativeId, customerId, 
 	const nextDue = await nextDueByLine([...new Set(lines.map((line) => line.customer_id).filter(Boolean))]);
 	const groups = new Map();
 	for (const line of lines) {
-		const key = groupBy === "representative" ? line.representative_id || 0 : line.customer_id || `n:${line.customer_name}`;
+		const key =
+			groupBy === "representative" ? line.representative_id || 0 : groupBy === "product" ? line.product_code : line.customer_id || `n:${line.customer_name}`;
 		if (!groups.has(key))
 			groups.set(key, {
 				key,
 				customerId: groupBy === "customer" ? line.customer_id : null,
-				name: groupBy === "representative" ? line.representative_name || "Sem representante" : line.customer_name,
+				name: groupBy === "representative" ? line.representative_name || "Sem representante" : groupBy === "product" ? line.product_code : line.customer_name,
+				productDescription: groupBy === "product" ? line.product_description || "" : undefined,
 				representativeId: line.representative_id,
 				representativeName: line.representative_name || "",
 				customers: new Set(),
@@ -252,9 +254,11 @@ async function summary({ groupBy = "customer", q, representativeId, customerId, 
 		const due = line.outstanding > 0 ? nextDue.get(`${line.customer_id}|${line.product_code}`) : null;
 		if (due && (!group.nextDue || due < group.nextDue)) group.nextDue = due;
 		if (!group.lastEntry || line.last_entry > group.lastEntry) group.lastEntry = line.last_entry;
+		if (groupBy === "product" && !group.productDescription && line.product_description) group.productDescription = line.product_description;
 		group.lines.push({
 			customerId: line.customer_id,
 			customerName: line.customer_name,
+			representativeName: line.representative_name || "",
 			productCode: line.product_code,
 			productDescription: line.product_description,
 			debited: line.debited,
@@ -272,9 +276,19 @@ async function summary({ groupBy = "customer", q, representativeId, customerId, 
 		...group,
 		customerCount: customers.size,
 		lastEntry: lastEntry ? new Date(lastEntry).toISOString().slice(0, 10) : null,
-		lines: group.lines.sort((a, b) => b.outstanding - a.outstanding || a.productCode.localeCompare(b.productCode))
+		lines: group.lines.sort(
+			(a, b) => b.outstanding - a.outstanding || a.productCode.localeCompare(b.productCode) || a.customerName.localeCompare(b.customerName)
+		)
 	}));
-	if (term) rows = rows.filter((row) => row.name.toLowerCase().includes(term) || row.representativeName.toLowerCase().includes(term));
+	if (term)
+		rows = rows.filter(
+			(row) =>
+				row.name.toLowerCase().includes(term) ||
+				row.representativeName.toLowerCase().includes(term) ||
+				String(row.productDescription || "")
+					.toLowerCase()
+					.includes(term)
+		);
 	if (onlyOpen) rows = rows.filter((row) => row.outstanding !== 0);
 	if (onlyOverdue) rows = rows.filter((row) => row.overdue > 0);
 	rows.sort((a, b) => b.overdue - a.overdue || b.outstanding - a.outstanding || a.name.localeCompare(b.name));
@@ -286,11 +300,72 @@ async function summary({ groupBy = "customer", q, representativeId, customerId, 
 		}),
 		{ outstanding: 0, overdue: 0, debtors: 0 }
 	);
+	// Por produto o mesmo cliente aparece em varias pecas: conta clientes distintos com saldo.
+	if (groupBy === "product")
+		totals.debtors = new Set(rows.flatMap((row) => row.lines.filter((line) => line.outstanding > 0).map((line) => line.customerId || line.customerName))).size;
 	const { rows: month } = await database.query(
 		`SELECT COALESCE(SUM(quantity) FILTER (WHERE condition = 'aproveitavel'), 0)::int AS returned, COALESCE(SUM(quantity) FILTER (WHERE condition = 'refugada'), 0)::int AS refused
 		 FROM carcass_entries WHERE kind = 'return' AND reversed_at IS NULL AND entry_date >= date_trunc('month', ${TODAY_SQL})`
 	);
 	return { groupBy, rows, totals: { ...totals, returnedThisMonth: month[0].returned, refusedThisMonth: month[0].refused } };
+}
+
+// ---------------------------------------------------------------- pedido de venda
+// Itens do pedido marcados como "base de troca" geram o debito da carcaca (source = 'case').
+// Chamado na criacao, na edicao dos itens e na mudanca de status, dentro da transacao do pedido.
+// Se o conjunto de pecas/quantidades mudou, estorna os debitos do pedido e lanca de novo
+// (data de lancamento = data do pedido, entao o prazo nao "reinicia" a cada edicao).
+async function syncCaseEntries(db, caseRow, items, user) {
+	const cancelled = ["Cancelado"].includes(caseRow.status);
+	const wanted = cancelled
+		? []
+		: items
+				.filter((item) => item.carcass)
+				.map((item) => ({ code: String(item.productCode).toUpperCase(), description: item.description || null, quantity: Number(item.quantity) }));
+	const { rows: current } = await db.query(
+		"SELECT id, product_code, quantity FROM carcass_entries WHERE source = 'case' AND case_id = $1 AND reversed_at IS NULL ORDER BY id",
+		[caseRow.id]
+	);
+	const signature = (list) =>
+		list
+			.map((entry) => `${entry.code ?? entry.product_code}|${entry.quantity}`)
+			.sort()
+			.join(";");
+	if (signature(current) === signature(wanted)) return { changed: false };
+	if (current.length) {
+		await db.query(
+			"UPDATE carcass_entries SET reversed_at = NOW(), reversed_by = $2, reversal_reason = $3 WHERE source = 'case' AND case_id = $1 AND reversed_at IS NULL",
+			[caseRow.id, user?.id || null, cancelled ? `Pedido ${caseRow.case_number} cancelado` : `Itens do pedido ${caseRow.case_number} alterados`]
+		);
+	}
+	if (!wanted.length) return { changed: true };
+	const { rows: customers } = caseRow.customer_id
+		? await db.query("SELECT id, name, representative_id FROM customers WHERE id = $1", [caseRow.customer_id])
+		: { rows: [] };
+	const customer = customers[0];
+	const entryDate = new Date(new Date(caseRow.created_at).getTime() - 3 * 3600000).toISOString().slice(0, 10);
+	const due = addDays(entryDate, await dueDays());
+	const document = [caseRow.case_number, caseRow.document_reference].filter(Boolean).join(" · ").slice(0, 120);
+	for (const entry of wanted) {
+		await db.query(
+			`INSERT INTO carcass_entries (kind, customer_id, customer_name, representative_id, product_code, product_description, quantity, due_date, entry_date, document, source, case_id, created_by)
+			 VALUES ('debit', $1, $2, $3, $4, $5, $6, $7, $8, $9, 'case', $10, $11)`,
+			[
+				customer?.id || null,
+				customer?.name || caseRow.client,
+				customer?.representative_id || null,
+				entry.code,
+				entry.description,
+				entry.quantity,
+				due,
+				entryDate,
+				document,
+				caseRow.id,
+				user?.id || null
+			]
+		);
+	}
+	return { changed: true };
 }
 
 // ---------------------------------------------------------------- Omie
@@ -310,6 +385,16 @@ async function fromInvoice(invoice, mirrorKey) {
 	);
 	if (!remanufactured.length) return 0;
 	const marked = new Set(remanufactured.map((row) => row.code));
+	// Pecas ja lancadas como "base de troca" no pedido do app ligado a este pedido do Omie nao geram debito de novo.
+	if (invoice.omieOrderCode) {
+		const { rows: fromOrder } = await database.query(
+			`SELECT DISTINCT lower(e.product_code) AS code FROM carcass_entries e JOIN cases c ON c.id = e.case_id
+			 WHERE e.source = 'case' AND e.reversed_at IS NULL AND c.omie_order_code = $1`,
+			[invoice.omieOrderCode]
+		);
+		for (const row of fromOrder) marked.delete(row.code);
+		if (!marked.size && !invoice.cancelled) return 0;
+	}
 	if (invoice.cancelled) {
 		await database.query(
 			"UPDATE carcass_entries SET reversed_at = NOW(), reversal_reason = 'Nota fiscal cancelada no Omie' WHERE source_key LIKE $1 AND reversed_at IS NULL",
@@ -391,4 +476,16 @@ function startCarcassScheduler() {
 	return timer;
 }
 
-module.exports = { createEntry, reverseEntry, listEntries, getEntry, summary, fromInvoice, notifyOverdue, startCarcassScheduler, dueDays, addDays };
+module.exports = {
+	syncCaseEntries,
+	createEntry,
+	reverseEntry,
+	listEntries,
+	getEntry,
+	summary,
+	fromInvoice,
+	notifyOverdue,
+	startCarcassScheduler,
+	dueDays,
+	addDays
+};

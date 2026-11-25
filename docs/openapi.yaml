@@ -627,6 +627,9 @@
                 "notes":
                   "type": "string"
                   "maxLength": 4000
+                "invoiceNotes":
+                  "type": "string"
+                  "maxLength": 2000
                 "customerId":
                   "type": "integer"
                   "exclusiveMinimum": 0
@@ -714,6 +717,11 @@
                       "lotNumber":
                         "type": "string"
                         "maxLength": 80
+                      "notes":
+                        "type": "string"
+                        "maxLength": 500
+                      "carcass":
+                        "type": "boolean"
                     "required":
                       - "productCode"
                       - "description"
@@ -807,6 +815,9 @@
                 "notes":
                   "type": "string"
                   "maxLength": 4000
+                "invoiceNotes":
+                  "type": "string"
+                  "maxLength": 2000
                 "customerId":
                   "type": "integer"
                   "exclusiveMinimum": 0
@@ -894,6 +905,11 @@
                       "lotNumber":
                         "type": "string"
                         "maxLength": 80
+                      "notes":
+                        "type": "string"
+                        "maxLength": 500
+                      "carcass":
+                        "type": "boolean"
                     "required":
                       - "productCode"
                       - "description"
@@ -1214,6 +1230,30 @@
           "description": "Regra de negocio violada (transicao, checklist, documentos)"
         "429":
           "description": "Muitas tentativas (Retry-After)"
+  "/api/cases/{caseNumber}/items":
+    "put":
+      "tags":
+        - "Processos"
+      "summary": "PUT /api/cases/{caseNumber}/items"
+      "parameters":
+        - "name": "caseNumber"
+          "in": "path"
+          "required": true
+          "schema":
+            "type": "string"
+      "responses":
+        "200":
+          "description": "Sucesso"
+        "400":
+          "description": "Dados invalidos (code VALIDATION_ERROR, errors[])"
+        "401":
+          "description": "Sessao invalida ou expirada"
+        "403":
+          "description": "Perfil sem permissao, CSRF invalido, origem nao permitida ou troca de senha/MFA pendente (code)"
+        "422":
+          "description": "Regra de negocio violada (transicao, checklist, documentos)"
+        "429":
+          "description": "Muitas tentativas (Retry-After)"
   "/api/cases/{caseNumber}/management":
     "get":
       "tags":
@@ -1436,6 +1476,30 @@
       "tags":
         - "Cadastros"
       "summary": "PATCH /api/customers/{id}"
+      "parameters":
+        - "name": "id"
+          "in": "path"
+          "required": true
+          "schema":
+            "type": "string"
+      "responses":
+        "200":
+          "description": "Sucesso"
+        "400":
+          "description": "Dados invalidos (code VALIDATION_ERROR, errors[])"
+        "401":
+          "description": "Sessao invalida ou expirada"
+        "403":
+          "description": "Perfil sem permissao, CSRF invalido, origem nao permitida ou troca de senha/MFA pendente (code)"
+        "422":
+          "description": "Regra de negocio violada (transicao, checklist, documentos)"
+        "429":
+          "description": "Muitas tentativas (Retry-After)"
+  "/api/customers/{id}/sales-defaults":
+    "get":
+      "tags":
+        - "Cadastros"
+      "summary": "GET /api/customers/{id}/sales-defaults"
       "parameters":
         - "name": "id"
           "in": "path"
@@ -2033,6 +2097,24 @@
           "required": true
           "schema":
             "type": "string"
+      "responses":
+        "200":
+          "description": "Sucesso"
+        "400":
+          "description": "Dados invalidos (code VALIDATION_ERROR, errors[])"
+        "401":
+          "description": "Sessao invalida ou expirada"
+        "403":
+          "description": "Perfil sem permissao, CSRF invalido, origem nao permitida ou troca de senha/MFA pendente (code)"
+        "422":
+          "description": "Regra de negocio violada (transicao, checklist, documentos)"
+        "429":
+          "description": "Muitas tentativas (Retry-After)"
+  "/api/products/sales-history":
+    "get":
+      "tags":
+        - "Cadastros"
+      "summary": "GET /api/products/sales-history"
       "responses":
         "200":
           "description": "Sucesso"

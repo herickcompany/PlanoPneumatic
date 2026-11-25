@@ -67,13 +67,17 @@ window.PPGuide = [
 		icon: "order",
 		capability: "cases.create",
 		paths: ["/pedido-venda.html"],
-		summary: "Formulário completo de um pedido de venda: cliente, produto, quantidade, valor e documento de origem.",
+		summary: "Lançamento do pedido de venda: cliente, vendedor e prazo (puxados do Omie), itens com valores, observações e base de troca.",
 		steps: [
-			"Preencha cliente (o CPF/CNPJ é validado), produto e quantidade.",
-			"Informe o valor unitário e o documento de origem (pedido ou nota).",
-			"Salve. O pedido segue o fluxo Criado → Em análise → Aprovado → Em faturamento → Concluído."
+			"Escolha o cliente: vendedor e prazo são preenchidos sozinhos (Omie ou último pedido do cliente). Dá para alterar.",
+			"Em Itens e valores, digite o código ou a descrição: o outro campo se completa. Veja o histórico de venda da peça (cliente e geral) e clique no valor para usar.",
+			"Use a observação do item para detalhes da peça e marque Base de troca quando o cliente for devolver a carcaça (vai sozinho para o controle de carcaças).",
+			"Preencha as informações que devem constar na nota fiscal e salve. Depois de lançado, Editar itens inclui/exclui produtos e muda quantidade e valor."
 		],
-		tips: ["O sistema guarda um rascunho no seu navegador: se fechar a tela sem querer, os dados voltam."]
+		tips: [
+			"O sistema guarda um rascunho no seu navegador: se fechar a tela sem querer, os dados voltam.",
+			"Peça cadastrada como remanufaturada já vem com Base de troca marcada."
+		]
 	},
 	{
 		id: "troca",
@@ -119,8 +123,8 @@ window.PPGuide = [
 		steps: [
 			"Recebimento: cliente, produto, série/lote e o defeito relatado.",
 			"Análise inicial: anexe fotos e documentos da peça.",
-			"Encaminhamento: o técnico registra o laudo e decide procedente ou improcedente (improcedente exige motivo).",
-			"Ao aprovar, escolha o destino: reposição, devolução, troca ou arquivo. A logística acompanha coleta e transporte."
+			"Encaminhamento: decida Procedente ou Improcedente (improcedente exige motivo). O laudo técnico é opcional.",
+			"Ao marcar como Procedente, escolha o destino: reposição, devolução, troca ou arquivo. A logística acompanha coleta e transporte."
 		],
 		tips: ["“O que falta para avançar”, na tela do processo, lista exatamente o que bloqueia o próximo passo."]
 	},

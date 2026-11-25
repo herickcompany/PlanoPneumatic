@@ -6,7 +6,9 @@ const users = { admin: ["admin@e2e.local", "Painel-Central-E2E-Seguro-7"], opera
 // Nenhuma tela pode violar a CSP (sem 'unsafe-inline' em scripts e estilos).
 test.beforeEach(async ({ page }, testInfo) => {
 	testInfo.cspViolations = [];
-	page.on("console", (message) => { if (/Content Security Policy|Refused to (apply|execute|load)/i.test(message.text())) testInfo.cspViolations.push(message.text()); });
+	page.on("console", (message) => {
+		if (/Content Security Policy|Refused to (apply|execute|load)/i.test(message.text())) testInfo.cspViolations.push(message.text());
+	});
 });
 // eslint-disable-next-line no-empty-pattern -- o Playwright exige o primeiro argumento desestruturado
 test.afterEach(async ({}, testInfo) => {
@@ -49,16 +51,18 @@ test("triagem a encerramento sem passos manuais no banco (garantia)", async ({ p
 	await confirmDialog(page);
 	await expect(page.locator(".case-badges")).toContainText("Em análise");
 
-	// Sem laudo a aprovacao e bloqueada e o motivo aparece em "O que falta".
-	await expect(page.getByText("Registrar o laudo técnico.")).toBeVisible();
+	// O laudo e opcional, mas continua podendo ser registrado.
 	await page.getByLabel("Laudo técnico").fill("Vedação rompida por defeito de fabricação.");
 	await page.getByRole("button", { name: "Salvar laudo" }).click();
 	await expect(page.getByText("Laudo salvo.")).toBeVisible();
 
-	await page.getByRole("button", { name: "Aprovado", exact: true }).click();
-	await page.getByRole("dialog").getByLabel(/Destino da garantia/).selectOption("reposicao");
+	await page.getByRole("button", { name: "Procedente", exact: true }).click();
+	await page
+		.getByRole("dialog")
+		.getByLabel(/Destino da garantia/)
+		.selectOption("reposicao");
 	await confirmDialog(page);
-	await expect(page.locator(".case-badges")).toContainText("Aprovado");
+	await expect(page.locator(".case-badges")).toContainText("Procedente");
 
 	await page.getByRole("button", { name: "Processando", exact: true }).click();
 	await confirmDialog(page);
@@ -101,7 +105,7 @@ test("operador nao ve acoes de decisao e a triagem valida o documento", async ({
 	await page.getByRole("button", { name: /Continuar/ }).click();
 	await page.locator("#triage-submit").click();
 	await expect(page).toHaveURL(/caso\.html\?id=GAR-/);
-	await expect(page.getByRole("button", { name: "Aprovado", exact: true })).toHaveCount(0);
+	await expect(page.getByRole("button", { name: "Procedente", exact: true })).toHaveCount(0);
 	await expect(page.getByRole("button", { name: "Em análise", exact: true })).toBeVisible();
 });
 
@@ -150,7 +154,9 @@ test("sessao fica em cookie HttpOnly: nenhum token visivel para o JavaScript", a
 	expect(session.httpOnly).toBe(true);
 	expect(session.sameSite).toBe("Strict");
 	// Requisicao forjada sem o cabecalho CSRF e recusada mesmo com o cookie.
-	const status = await page.evaluate(async () => (await fetch("/api/cases", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).status);
+	const status = await page.evaluate(
+		async () => (await fetch("/api/cases", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).status
+	);
 	expect(status).toBe(403);
 	await page.getByRole("button", { name: /Sair/ }).first().click();
 	await expect(page.getByRole("heading", { name: "Entrar no sistema" })).toBeVisible();
@@ -212,12 +218,18 @@ test("MFA: ativar em Minha conta e entrar com o codigo do aplicativo", async ({ 
 	await fillLogin(other, ...users.admin);
 	await expect(other.getByRole("heading", { name: "Verificação em duas etapas" })).toBeVisible();
 	await other.locator("#mfa-form").getByLabel("Código de verificação").fill("000000");
-	await other.locator("#mfa-form").getByRole("button", { name: /Verificar/ }).click();
+	await other
+		.locator("#mfa-form")
+		.getByRole("button", { name: /Verificar/ })
+		.click();
 	await expect(other.locator("#mfa-form .feedback")).toContainText(/invalido/i);
 	await other.locator("#mfa-form").getByLabel("Código de verificação").fill("");
 	await other.getByText("Perdi o celular").click();
 	await other.getByLabel("Código de recuperação").fill(recovery);
-	await other.locator("#mfa-form").getByRole("button", { name: /Verificar/ }).click();
+	await other
+		.locator("#mfa-form")
+		.getByRole("button", { name: /Verificar/ })
+		.click();
 	await expect(other.getByRole("heading", { name: "Dashboard operacional" })).toBeVisible();
 	await context.close();
 
@@ -225,7 +237,10 @@ test("MFA: ativar em Minha conta e entrar com o codigo do aplicativo", async ({ 
 	await page.reload();
 	await page.getByRole("button", { name: "Desativar" }).click();
 	await page.getByRole("dialog").getByLabel("Senha").fill(users.admin[1]);
-	await page.getByRole("dialog").getByLabel("Código atual do aplicativo").fill(totp.codeAt(secret, totp.currentStep() + 1));
+	await page
+		.getByRole("dialog")
+		.getByLabel("Código atual do aplicativo")
+		.fill(totp.codeAt(secret, totp.currentStep() + 1));
 	await page.getByRole("dialog").getByRole("button", { name: "Desativar" }).click();
 	await expect(page.locator("#mfa-status")).toHaveText("Desativada");
 });

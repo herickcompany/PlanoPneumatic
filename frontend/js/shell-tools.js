@@ -35,7 +35,7 @@
 				items
 					.map(
 						(item) =>
-							`<button type="button" class="palette-result" role="option" data-id="${esc(item.id)}"><span><strong>${esc(item.id)}</strong> · ${esc(item.client)}<br><small class="muted">${esc(item.type)} · ${esc(item.product)}</small></span><span class="table-status ${window.PP.statusTone(item.status)}">${esc(statusLabel(item.status))}</span></button>`
+							`<button type="button" class="palette-result" role="option" data-id="${esc(item.id)}"><span><strong>${esc(item.id)}</strong> · ${esc(item.client)}<br><small class="muted">${esc(item.type)} · ${esc(item.product)}</small></span><span class="table-status ${window.PP.statusTone(item.status)}">${esc(statusLabel(item.status, item.type))}</span></button>`
 					)
 					.join("") || "<p>Nenhum processo encontrado.</p>";
 			active = 0;

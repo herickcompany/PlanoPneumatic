@@ -71,16 +71,12 @@ function validateTransition(user, item, target, context) {
 	if (REASON_REQUIRED.includes(target) && !String(context.reason || "").trim()) {
 		return { code: "REASON_REQUIRED", message: `Informe o motivo para marcar como ${target}.` };
 	}
-	if (item.type === "Garantia" && target === "Aprovado") {
-		if (!String(item.technical_report || "").trim()) return { code: "REPORT_REQUIRED", message: "Registre o laudo técnico antes de aprovar a garantia." };
-		if (!context.destination && !item.warranty_destination)
-			return { code: "DESTINATION_REQUIRED", message: "Informe o destino da garantia (reposição, devolução, troca ou arquivo)." };
+	// Garantia: o laudo tecnico e opcional para decidir (procedente ou improcedente); o destino continua obrigatorio.
+	if (item.type === "Garantia" && target === "Aprovado" && !context.destination && !item.warranty_destination) {
+		return { code: "DESTINATION_REQUIRED", message: "Informe o destino da garantia (reposição, devolução, troca ou arquivo)." };
 	}
 	if (item.type === "Base de troca" && target === "Aprovado" && (!item.exchange_reason || !item.item_condition)) {
 		return { code: "FIELDS_REQUIRED", message: "Informe o motivo da troca e a condição do item antes de aprovar." };
-	}
-	if (item.type === "Garantia" && target === "Improcedente" && !String(item.technical_report || "").trim()) {
-		return { code: "REPORT_REQUIRED", message: "Registre o laudo técnico antes de marcar a garantia como improcedente." };
 	}
 	if (CLOSING_STATUSES.includes(target)) {
 		const pending = context.checklist.filter((entry) => !entry.completed);

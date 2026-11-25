@@ -1,6 +1,6 @@
 const ExcelJS = require("exceljs");
 const PDFDocument = require("pdfkit");
-const { STATUS_LABELS } = require("../domain/constants");
+const { statusLabel } = require("../domain/constants");
 
 const COLUMNS = [
 	{ key: "case_number", header: "Processo", width: 18 },
@@ -20,7 +20,7 @@ const COLUMNS = [
 const formatDateTime = (value) => (value ? new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "");
 
 function cellValue(row, key) {
-	if (key === "status") return STATUS_LABELS[row.status] || row.status;
+	if (key === "status") return statusLabel(row.status, row.type);
 	if (key === "due_at" || key === "updated_at" || key === "created_at") return formatDateTime(row[key]);
 	return row[key] ?? "";
 }

@@ -44,8 +44,10 @@ router.post(
 	"/sync",
 	requireCapability(capabilities.MANAGE_REGISTRY),
 	wrap(async (request, response) => {
-		const { kind } = z.object({ kind: z.enum(["customers", "products", "orders", "invoices", "all"]).default("all") }).parse(request.body || {});
-		const kinds = kind === "all" ? ["customers", "products"] : [kind];
+		const { kind } = z
+			.object({ kind: z.enum(["customers", "products", "sellers", "paymentTerms", "orders", "invoices", "all"]).default("all") })
+			.parse(request.body || {});
+		const kinds = kind === "all" ? ["customers", "products", "sellers", "paymentTerms"] : [kind];
 		const results = [];
 		for (const item of kinds) results.push(await omie.runSync(item, { userId: request.user.id }));
 		return response.json({ results });

@@ -43,6 +43,25 @@ document.head.appendChild(sharedShellScript);
 		["lotNumber", "Lote"],
 		["notes", "Observações", "textarea"]
 	];
+	const ORDER_FIELDS = [
+		["client", "Cliente"],
+		["clientDocument", "CPF/CNPJ", "document"],
+		["salesRepresentative", "Vendedor"],
+		["paymentTerms", "Prazo (condição de pagamento)"],
+		["documentReference", "Documento de origem"]
+	];
+	const ORDER_NOTE_FIELDS = [
+		["invoiceNotes", "Informações para constar na nota fiscal", "textarea"],
+		["notes", "Observações internas", "textarea"]
+	];
+	const isOrder = () => data.type === "Pedido de venda";
+	const detailFields = () => (isOrder() ? ORDER_FIELDS : [...COMMON_FIELDS, ...TYPE_FIELDS[data.type]]);
+	const editorFields = () => (isOrder() ? [...ORDER_FIELDS, ...ORDER_NOTE_FIELDS] : [...COMMON_FIELDS, ...TYPE_FIELDS[data.type]]);
+	// Pedidos antigos sem linhas de item: o proprio processo vira o item.
+	const orderItems = () =>
+		data.items.length
+			? data.items
+			: [{ productCode: data.productCode, description: data.product, quantity: data.quantity, unitPrice: data.unitPrice, notes: "", carcass: false }];
 	const MAIN_PATH = {
 		"Pedido de venda": ["Criado", "Em analise", "Aprovado", "Em faturamento", "Concluido", "Encerrado"],
 		"Base de troca": ["Criado", "Em analise", "Aprovado", "Processando", "Concluido", "Encerrado"],
@@ -60,6 +79,7 @@ document.head.appendChild(sharedShellScript);
 		ARQUIVAMENTO: "Arquivamento",
 		DIVERGENCIA: "Divergência",
 		VALIDACAO: "Validação Omie",
+		ITENS: "Itens do pedido",
 		DESARQUIVAMENTO: "Restauração"
 	};
 	const COLUMN_LABELS = {
@@ -86,7 +106,8 @@ document.head.appendChild(sharedShellScript);
 		technical_report: "Laudo",
 		technical_owner_id: "Responsável técnico",
 		warranty_destination: "Destino",
-		logistics_status: "Logística"
+		logistics_status: "Logística",
+		invoice_notes: "Informações para a NF"
 	};
 
 	function options(list, selected, placeholder = "—") {
@@ -111,9 +132,6 @@ document.head.appendChild(sharedShellScript);
 		const next = index >= 0 ? path[index + 1] : null;
 		if (data.status === "Aguardando documento") hints.push("Anexe o documento solicitado e volte o processo para análise.");
 		if (!next) return hints;
-		if (data.type === "Garantia" && next === "Aprovado") {
-			if (!data.technicalReport) hints.push("Registrar o laudo técnico.");
-		}
 		if (data.type === "Base de troca" && next === "Aprovado") {
 			if (!data.exchangeReason) hints.push("Informar o motivo da troca.");
 			if (!data.itemCondition) hints.push("Avaliar a condição do item.");
@@ -146,12 +164,12 @@ document.head.appendChild(sharedShellScript);
 		const stepper = path
 			.map(
 				(status, index) =>
-					`<li class="${index < currentIndex ? "done" : status === data.status ? "current" : ""}" ${status === data.status ? 'aria-current="step"' : ""}>${esc(PP.statusLabel(status))}</li>`
+					`<li class="${index < currentIndex ? "done" : status === data.status ? "current" : ""}" ${status === data.status ? 'aria-current="step"' : ""}>${esc(PP.statusLabel(status, data.type))}</li>`
 			)
 			.join("");
-		const finalNote = currentIndex < 0 ? `<li class="current">${esc(PP.statusLabel(data.status))}</li>` : "";
+		const finalNote = currentIndex < 0 ? `<li class="current">${esc(PP.statusLabel(data.status, data.type))}</li>` : "";
 		const hints = missingForNext();
-		const fields = [...COMMON_FIELDS, ...TYPE_FIELDS[data.type]];
+		const fields = detailFields();
 		const details = fields
 			.map(
 				([key, label, kind]) =>
@@ -162,12 +180,22 @@ document.head.appendChild(sharedShellScript);
 			data.allowedTransitions
 				.map((status) => {
 					const reopen = ["Encerrado", "Cancelado"].includes(data.status) && status === "Em analise";
-					return `<button class="button ${status === "Cancelado" || status === "Improcedente" ? "button-secondary" : "button-primary"} compact-button" type="button" data-transition="${esc(status)}">${reopen ? "Reabrir processo" : esc(PP.statusLabel(status))}</button>`;
+					return `<button class="button ${status === "Cancelado" || status === "Improcedente" ? "button-secondary" : "button-primary"} compact-button" type="button" data-transition="${esc(status)}">${reopen ? "Reabrir processo" : esc(PP.statusLabel(status, data.type))}</button>`;
 				})
 				.join("") || '<span class="muted">Nenhuma ação disponível para o seu perfil neste status.</span>';
-		const itemsPanel = data.items.length
-			? `<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Pedido</p><h2>Itens e valores</h2></div><strong>${esc(PP.money(data.totalValue))}</strong></div><div class="table-wrap"><table><thead><tr><th>Código</th><th>Descrição</th><th>Qtd</th><th>Unitário</th><th>Subtotal</th></tr></thead><tbody>${data.items.map((item) => `<tr><td>${esc(item.productCode)}</td><td>${esc(item.description)}</td><td>${esc(item.quantity)}</td><td>${esc(PP.money(item.unitPrice))}</td><td>${esc(PP.money(item.quantity * (Number(item.unitPrice) || 0)))}</td></tr>`).join("")}</tbody></table></div></article>`
-			: "";
+		const itemsPanel =
+			isOrder() || data.items.length
+				? `<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Pedido</p><h2>Itens e valores</h2></div><div class="actions-cell"><strong>${esc(PP.money(data.totalValue))}</strong>${permissions.editItems ? '<button class="button button-secondary compact-button" type="button" id="edit-items">Editar itens</button>' : ""}</div></div><div class="table-wrap"><table class="items-view"><thead><tr><th>Código</th><th>Descrição</th><th>Qtd</th><th>Unitário</th><th>Subtotal</th><th>Base de troca</th></tr></thead><tbody>${orderItems()
+						.map(
+							(item) =>
+								`<tr><td>${esc(item.productCode)}</td><td>${esc(item.description)}${item.notes ? `<span class="item-note">Obs.: ${esc(item.notes)}</span>` : ""}</td><td>${esc(item.quantity)}</td><td>${esc(PP.money(item.unitPrice))}</td><td>${esc(PP.money(item.quantity * (Number(item.unitPrice) || 0)))}</td><td class="center-cell">${item.carcass ? '<span class="table-status orange" title="O cliente fica devendo a carcaça">Sim</span>' : "—"}</td></tr>`
+						)
+						.join("")}</tbody></table></div></article>`
+				: "";
+		const orderNotesPanel =
+			isOrder() && (data.invoiceNotes || data.notes)
+				? `<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Pedido</p><h2>Nota fiscal e observações</h2></div></div><div class="kv-grid">${ORDER_NOTE_FIELDS.map(([key, label]) => `<div><small>${esc(label)}</small><strong class="pre-line">${esc(display(data[key]))}</strong></div>`).join("")}</div></article>`
+				: "";
 		const reportPanel =
 			data.type === "Garantia"
 				? `<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Análise técnica</p><h2>Laudo e decisão</h2></div>${data.warrantyDecision ? `<span class="table-status ${data.warrantyDecision === "procedente" ? "green" : "red"}">${data.warrantyDecision === "procedente" ? "Procedente" : "Improcedente"}</span>` : '<span class="table-status orange">Sem decisão</span>'}</div><div class="kv-grid"><div><small>Responsável técnico</small><strong>${esc(data.technicalOwnerName || "—")}</strong></div><div><small>Destino</small><strong>${esc(meta.warrantyDestinations[data.warrantyDestination] || "—")}</strong></div><div><small>Decidido por</small><strong>${esc(data.decidedByName || "—")}</strong></div></div>${permissions.technical && permissions.edit ? `<form id="report-form" class="form"><label>Laudo técnico<textarea name="technicalReport" rows="5" maxlength="8000" placeholder="Descreva a análise, a causa do defeito e a conclusão">${esc(data.technicalReport)}</textarea></label><div class="form-actions"><button class="button button-secondary compact-button" type="button" id="take-ownership">Assumir como responsável técnico</button><button class="button button-primary compact-button" type="submit">Salvar laudo</button></div></form>` : `<p class="pre-wrap">${esc(data.technicalReport || "Nenhum laudo registrado.")}</p>`}</article>`
@@ -185,7 +213,7 @@ document.head.appendChild(sharedShellScript);
 			data.attachments
 				.map(
 					(item) =>
-						`<div class="attachment-row"><div><strong>${esc(item.fileName)}</strong><small>${esc(item.kind)}${item.stage ? ` · ${esc(PP.statusLabel(item.stage))}` : ""}${item.sizeBytes ? ` · ${esc(PP.fileSize(item.sizeBytes))}` : ""} · ${esc(item.uploadedBy || "")} ${esc(PP.formatDateTime(item.createdAt))}</small>${item.scanStatus === "clean" ? '<span class="scan-badge clean">Verificado pelo antivírus</span>' : item.scanStatus === "error" ? '<span class="scan-badge warn" title="O antivírus estava indisponível no envio">Não verificado</span>' : ""}</div><div class="actions-cell">${item.hasFile ? `<button class="button button-secondary compact-button" type="button" data-open-attachment="${esc(item.id)}">Abrir</button>` : /^https:\/\//i.test(item.fileUrl || "") ? `<a class="button button-secondary compact-button" href="${esc(item.fileUrl)}" target="_blank" rel="noopener noreferrer">Link</a>` : ""}${permissions.edit ? `<button class="button button-secondary compact-button" type="button" data-remove-attachment="${esc(item.id)}" aria-label="Remover ${esc(item.fileName)}">Remover</button>` : ""}</div></div>`
+						`<div class="attachment-row"><div><strong>${esc(item.fileName)}</strong><small>${esc(item.kind)}${item.stage ? ` · ${esc(PP.statusLabel(item.stage, data.type))}` : ""}${item.sizeBytes ? ` · ${esc(PP.fileSize(item.sizeBytes))}` : ""} · ${esc(item.uploadedBy || "")} ${esc(PP.formatDateTime(item.createdAt))}</small>${item.scanStatus === "clean" ? '<span class="scan-badge clean">Verificado pelo antivírus</span>' : item.scanStatus === "error" ? '<span class="scan-badge warn" title="O antivírus estava indisponível no envio">Não verificado</span>' : ""}</div><div class="actions-cell">${item.hasFile ? `<button class="button button-secondary compact-button" type="button" data-open-attachment="${esc(item.id)}">Abrir</button>` : /^https:\/\//i.test(item.fileUrl || "") ? `<a class="button button-secondary compact-button" href="${esc(item.fileUrl)}" target="_blank" rel="noopener noreferrer">Link</a>` : ""}${permissions.edit ? `<button class="button button-secondary compact-button" type="button" data-remove-attachment="${esc(item.id)}" aria-label="Remover ${esc(item.fileName)}">Remover</button>` : ""}</div></div>`
 				)
 				.join("") || PP.emptyState("Nenhum documento anexado", "Anexe fotos, laudos ou comprovantes.");
 		const timeline = data.events
@@ -206,7 +234,7 @@ document.head.appendChild(sharedShellScript);
 			<section class="panel case-hero">
 				<div class="case-header">
 					<div><h2>${esc(data.client)}</h2><p>${esc(data.type)} · ${esc(data.product)} (${esc(data.productCode)}) × ${esc(data.quantity)}</p></div>
-					<div class="case-badges"><span class="table-status ${PP.statusTone(data.status)}">${esc(PP.statusLabel(data.status))}</span>${PP.slaBadge(data)}${data.riskLevel ? `<span class="table-status ${data.riskLevel === "Alto" ? "red" : data.riskLevel === "Atenção" ? "orange" : "blue"}">Risco: ${esc(data.riskLevel)}</span>` : ""}${data.archived ? '<span class="table-status blue">Arquivado</span>' : ""}${data.reopenCount ? `<span class="table-status orange">Reaberto ${esc(data.reopenCount)}×</span>` : ""}</div>
+					<div class="case-badges"><span class="table-status ${PP.statusTone(data.status)}">${esc(PP.statusLabel(data.status, data.type))}</span>${PP.slaBadge(data)}${data.riskLevel ? `<span class="table-status ${data.riskLevel === "Alto" ? "red" : data.riskLevel === "Atenção" ? "orange" : "blue"}">Risco: ${esc(data.riskLevel)}</span>` : ""}${data.archived ? '<span class="table-status blue">Arquivado</span>' : ""}${data.reopenCount ? `<span class="table-status orange">Reaberto ${esc(data.reopenCount)}×</span>` : ""}</div>
 				</div>
 				<ol class="stepper" aria-label="Etapas do processo">${stepper}${finalNote}</ol>
 				${data.statusReason ? `<p class="muted"><strong>Motivo registrado:</strong> ${esc(data.statusReason)}</p>` : ""}
@@ -217,7 +245,7 @@ document.head.appendChild(sharedShellScript);
 			<div class="case-grid">
 				<section>
 					<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Dados</p><h2>Informações do processo</h2></div>${permissions.edit && !data.archived ? '<button class="button button-secondary compact-button" type="button" id="edit-case">Editar dados</button>' : ""}</div><div class="kv-grid">${details}</div></article>
-					${itemsPanel}${reportPanel}${logisticsPanel}
+					${itemsPanel}${orderNotesPanel}${reportPanel}${logisticsPanel}
 					<article class="panel"><div class="panel-heading"><div><p class="eyebrow">Interno</p><h2>Comentários</h2></div></div>${permissions.edit ? '<form id="comment-form" class="form"><label class="sr-only" for="comment-body">Comentário</label><textarea id="comment-body" name="body" rows="3" maxlength="4000" placeholder="Adicione um comentário interno…" required></textarea><div class="form-actions"><button class="button button-primary compact-button" type="submit">Comentar</button></div></form>' : ""}<div id="comment-list">${PP.skeleton(2)}</div></article>
 				</section>
 				<section>
@@ -259,8 +287,8 @@ document.head.appendChild(sharedShellScript);
 		const reopen = ["Encerrado", "Cancelado"].includes(data.status) && status === "Em analise";
 		const needsReason = ["Cancelado", "Improcedente"].includes(status) || reopen;
 		const isApprove = data.type === "Garantia" && status === "Aprovado";
-		const title = reopen ? "Reabrir processo" : `Mover para "${PP.statusLabel(status)}"`;
-		let body = `<p>${reopen ? "Informe a justificativa da reabertura." : `O processo <strong>${esc(data.id)}</strong> passará de <strong>${esc(PP.statusLabel(data.status))}</strong> para <strong>${esc(PP.statusLabel(status))}</strong>.`}</p>`;
+		const title = reopen ? "Reabrir processo" : `Mover para "${PP.statusLabel(status, data.type)}"`;
+		let body = `<p>${reopen ? "Informe a justificativa da reabertura." : `O processo <strong>${esc(data.id)}</strong> passará de <strong>${esc(PP.statusLabel(data.status, data.type))}</strong> para <strong>${esc(PP.statusLabel(status, data.type))}</strong>.`}</p>`;
 		if (isApprove)
 			body += `<label>Destino da garantia *<select name="destination" required>${options(meta.warrantyDestinations, data.warrantyDestination, "Selecione")}</select></label>`;
 		if (needsReason) body += `<label>${reopen ? "Justificativa" : "Motivo"} *<textarea name="reason" rows="3" maxlength="2000" required></textarea></label>`;
@@ -280,7 +308,7 @@ document.head.appendChild(sharedShellScript);
 				!["Aprovado", "Improcedente", "Encerrado", "Cancelado", "Concluido"].includes(status) &&
 				(meta.transitions[data.type][status] || []).includes(previous);
 			PP.toast(
-				`Status alterado para ${PP.statusLabel(status)}.`,
+				`Status alterado para ${PP.statusLabel(status, data.type)}.`,
 				"success",
 				canUndo ? "Desfazer" : undefined,
 				canUndo
@@ -301,7 +329,7 @@ document.head.appendChild(sharedShellScript);
 					method: "PATCH",
 					url: `/api/cases/${encodeURIComponent(caseId)}/status`,
 					body: { status, reason: answer.reason || undefined, destination: answer.destination || undefined },
-					label: `${caseId}: status ${PP.statusLabel(status)}`
+					label: `${caseId}: status ${PP.statusLabel(status, data.type)}`
 				})
 			)
 				return;
@@ -325,7 +353,7 @@ document.head.appendChild(sharedShellScript);
 	}
 
 	async function openEditor() {
-		const fields = [...COMMON_FIELDS, ...TYPE_FIELDS[data.type]];
+		const fields = editorFields();
 		const modal = document.createElement("div");
 		modal.className = "modal";
 		modal.setAttribute("role", "dialog");
@@ -392,9 +420,90 @@ document.head.appendChild(sharedShellScript);
 		}
 	}
 
+	function openItemsEditor() {
+		const modal = document.createElement("div");
+		modal.className = "modal";
+		modal.setAttribute("role", "dialog");
+		modal.setAttribute("aria-modal", "true");
+		modal.setAttribute("aria-label", "Editar itens do pedido");
+		modal.innerHTML = `<div class="modal-card editor-card wide-card"><div class="panel-heading"><div><p class="eyebrow">Editar itens</p><h2>${esc(data.id)}</h2></div><button class="close-button" type="button" data-close aria-label="Fechar">&times;</button></div>
+			<form class="form" novalidate><p class="muted">Inclua ou exclua produtos e altere quantidade e valor. A alteração fica registrada na linha do tempo; itens marcados como base de troca atualizam o saldo de carcaças do cliente.</p>
+			<div class="table-wrap"><table class="items-table order-items" aria-label="Itens do pedido"><thead><tr><th>Código *</th><th>Descrição *</th><th>Qtd *</th><th>Unitário (R$)</th><th>Observação do item</th><th>Base de troca</th><th><span class="sr-only">Remover</span></th></tr></thead><tbody></tbody></table></div>
+			<div class="inline-form"><button class="button button-secondary compact-button" type="button" data-add>+ Adicionar item</button><strong data-total class="items-total"></strong></div>
+			<p class="feedback" role="alert"></p><div class="form-actions"><button class="button button-secondary" type="button" data-close>Cancelar</button><button class="button button-primary" type="submit">Salvar itens</button></div></form></div>`;
+		document.body.appendChild(modal);
+		const body = modal.querySelector("tbody");
+		const form = modal.querySelector("form");
+		const moneyText = (value) =>
+			value === "" || value === null || value === undefined
+				? ""
+				: Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+		const read = () =>
+			[...body.querySelectorAll("tr")]
+				.map((row) => {
+					const value = (name) => row.querySelector(`[data-item="${name}"]`).value.trim();
+					const price = PP.parseMoney(value("unitPrice"));
+					return {
+						productCode: value("productCode"),
+						description: value("description"),
+						quantity: Number(value("quantity")),
+						...(Number.isFinite(price) ? { unitPrice: price } : {}),
+						...(value("notes") ? { notes: value("notes") } : {}),
+						carcass: row.querySelector('[data-item="carcass"]').checked
+					};
+				})
+				.filter((item) => item.productCode || item.description);
+		const total = () => {
+			modal.querySelector("[data-total]").textContent =
+				`Total: ${PP.money(read().reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0))}`;
+		};
+		const addRow = (item = {}) => {
+			const row = document.createElement("tr");
+			row.innerHTML = `<td><input data-item="productCode" aria-label="Código" value="${esc(item.productCode || "")}" /></td><td><input data-item="description" aria-label="Descrição" value="${esc(item.description || "")}" /></td><td><input data-item="quantity" type="number" min="1" aria-label="Quantidade" value="${esc(item.quantity || 1)}" /></td><td><input data-item="unitPrice" inputmode="decimal" aria-label="Valor unitário" value="${esc(moneyText(item.unitPrice))}" /></td><td><input data-item="notes" maxlength="500" aria-label="Observação do item" value="${esc(item.notes || "")}" /></td><td class="center-cell"><input data-item="carcass" type="checkbox" aria-label="Base de troca" ${item.carcass ? "checked" : ""} /></td><td><button class="button button-secondary compact-button" type="button" data-remove aria-label="Excluir item">×</button></td>`;
+			row.querySelector("[data-remove]").addEventListener("click", () => {
+				row.remove();
+				total();
+			});
+			PP.bindMoneyInput(row.querySelector('[data-item="unitPrice"]'));
+			body.appendChild(row);
+			return row;
+		};
+		orderItems().forEach((item) => addRow(item));
+		total();
+		body.addEventListener("input", total);
+		modal.querySelector("[data-add]").addEventListener("click", () => addRow().querySelector("input").focus());
+		const close = () => {
+			modal.remove();
+			document.removeEventListener("keydown", onKey);
+		};
+		const onKey = (event) => {
+			if (event.key === "Escape") close();
+		};
+		document.addEventListener("keydown", onKey);
+		modal.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", close));
+		body.querySelector("input")?.focus();
+		form.addEventListener("submit", async (event) => {
+			event.preventDefault();
+			const feedback = form.querySelector(".feedback");
+			const items = read();
+			if (!items.length) return (feedback.textContent = "O pedido precisa de ao menos um item.");
+			if (items.some((item) => !item.productCode || !item.description || !(item.quantity >= 1)))
+				return (feedback.textContent = "Preencha código, descrição e quantidade (mínimo 1) de todos os itens.");
+			try {
+				await api.put(`/api/cases/${encodeURIComponent(caseId)}/items`, { items });
+				close();
+				await reload();
+				PP.toast("Itens do pedido atualizados.", "success");
+			} catch (error) {
+				feedback.textContent = error.message;
+			}
+		});
+	}
+
 	function bind() {
 		root.querySelectorAll("[data-transition]").forEach((button) => button.addEventListener("click", () => runTransition(button.dataset.transition)));
 		root.querySelector("#edit-case")?.addEventListener("click", openEditor);
+		root.querySelector("#edit-items")?.addEventListener("click", openItemsEditor);
 		root.querySelector("[data-archive]")?.addEventListener("click", async (event) => {
 			const archive = event.currentTarget.dataset.archive === "on";
 			try {

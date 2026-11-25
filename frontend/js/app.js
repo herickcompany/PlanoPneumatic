@@ -115,7 +115,7 @@ function renderDashboard(data) {
 		data.recentCases
 			.map(
 				(item) => `
-    <tr class="case-row"><td><a class="table-link" href="/caso.html?id=${encodeURIComponent(item.id)}">${esc(item.id)}</a></td><td>${esc(item.client)}</td><td>${esc(item.type)}</td><td><span class="table-status ${PP.statusTone(item.status)}">${esc(PP.statusLabel(item.status))}</span></td><td>${PP.slaBadge(item)}</td><td class="muted">${esc(item.updatedAt)}</td></tr>
+    <tr class="case-row"><td><a class="table-link" href="/caso.html?id=${encodeURIComponent(item.id)}">${esc(item.id)}</a></td><td>${esc(item.client)}</td><td>${esc(item.type)}</td><td><span class="table-status ${PP.statusTone(item.status)}">${esc(PP.statusLabel(item.status, item.type))}</span></td><td>${PP.slaBadge(item)}</td><td class="muted">${esc(item.updatedAt)}</td></tr>
   `
 			)
 			.join("") ||
@@ -148,7 +148,7 @@ function renderInsights(data) {
 		data.alerts
 			.map(
 				(item) =>
-					`<a class="alert-row" href="/caso.html?id=${encodeURIComponent(item.id)}"><strong>${esc(item.id)}</strong><span>${esc(item.client)}</span><small>${item.overdue ? "Prazo vencido em" : "Vence em"} ${esc(PP.formatDateTime(item.dueAt))} · ${esc(PP.statusLabel(item.status))}</small></a>`
+					`<a class="alert-row" href="/caso.html?id=${encodeURIComponent(item.id)}"><strong>${esc(item.id)}</strong><span>${esc(item.client)}</span><small>${item.overdue ? "Prazo vencido em" : "Vence em"} ${esc(PP.formatDateTime(item.dueAt))} · ${esc(PP.statusLabel(item.status, item.type))}</small></a>`
 			)
 			.join("") || '<p class="muted">Nenhum processo vencido ou próximo do vencimento.</p>';
 }

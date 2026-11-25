@@ -1120,6 +1120,13 @@ td strong {
 .editor-card {
 	max-width: 760px;
 }
+.editor-card.wide-card {
+	max-width: 1100px;
+	width: calc(100vw - 32px);
+}
+.pre-line {
+	white-space: pre-line;
+}
 .editor-grid {
 	display: grid;
 	gap: 14px;

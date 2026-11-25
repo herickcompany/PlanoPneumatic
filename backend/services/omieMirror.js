@@ -44,6 +44,8 @@ function mapOrder(order) {
 		invoiced: info.faturado === "S",
 		cancelled: info.cancelado === "S",
 		total: Number(order.total_pedido?.valor_total_pedido) || items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+		sellerCode: Number(order.informacoes_adicionais?.codVend) || null,
+		paymentCode: clean(header.codigo_parcela, 20),
 		items
 	};
 }

@@ -23,7 +23,7 @@ router.get(
 	wrap(async (request, response) => {
 		const query = z
 			.object({
-				groupBy: z.enum(["customer", "representative"]).default("customer"),
+				groupBy: z.enum(["customer", "representative", "product"]).default("customer"),
 				q: z.string().trim().max(120).optional(),
 				representativeId: id.optional(),
 				customerId: id.optional(),

@@ -151,13 +151,14 @@ test("cannot close with pending checklist or without documents; allowedTransitio
 	assert.deepEqual(managerView.allowedTransitions, ["Encerrado"]);
 });
 
-test("warranty needs a technical report before approval and stores decision and destination (F5)", async () => {
+test("warranty decision does not require a technical report and stores decision and destination (F5)", async () => {
 	const operator = await h.createUser("operator");
 	const technician = await h.createUser("technician");
 	const caseNumber = await h.createCase(operator.token, "Garantia");
 	await h.api("PATCH", `/api/cases/${caseNumber}/status`, { token: operator.token, body: { status: "Em analise" } });
-	const early = await h.api("PATCH", `/api/cases/${caseNumber}/status`, { token: technician.token, body: { status: "Aprovado", destination: "reposicao" } });
-	assert.equal(early.body.code, "REPORT_REQUIRED");
+	// Sem laudo: a decisao nao e bloqueada pelo laudo, so pelo destino.
+	const early = await h.api("PATCH", `/api/cases/${caseNumber}/status`, { token: technician.token, body: { status: "Aprovado" } });
+	assert.equal(early.body.code, "DESTINATION_REQUIRED");
 
 	assert.equal(
 		(await h.api("PATCH", `/api/cases/${caseNumber}`, { token: operator.token, body: { technicalReport: "x" } })).status,

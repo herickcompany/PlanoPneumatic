@@ -89,7 +89,7 @@ document.head.appendChild(sharedShellScript);
 			result.cases
 				.map(
 					(item) =>
-						`<tr class="history-row sla-${esc(item.sla)}"><td>${canAssign ? `<input type="checkbox" data-select="${esc(item.id)}" aria-label="Selecionar ${esc(item.id)}" ${selected.has(item.id) ? "checked" : ""} />` : ""}</td><td><a class="table-link" href="/caso.html?id=${encodeURIComponent(item.id)}">${esc(item.id)}</a></td><td>${esc(item.client)}</td><td>${esc(item.type)}</td><td><span class="table-status ${PP.statusTone(item.status)}">${esc(PP.statusLabel(item.status))}</span></td><td>${PP.slaBadge(item)}</td><td>${esc(item.responsible)}</td><td class="muted">${esc(item.updatedAt)}</td></tr>`
+						`<tr class="history-row sla-${esc(item.sla)}"><td>${canAssign ? `<input type="checkbox" data-select="${esc(item.id)}" aria-label="Selecionar ${esc(item.id)}" ${selected.has(item.id) ? "checked" : ""} />` : ""}</td><td><a class="table-link" href="/caso.html?id=${encodeURIComponent(item.id)}">${esc(item.id)}</a></td><td>${esc(item.client)}</td><td>${esc(item.type)}</td><td><span class="table-status ${PP.statusTone(item.status)}">${esc(PP.statusLabel(item.status, item.type))}</span></td><td>${PP.slaBadge(item)}</td><td>${esc(item.responsible)}</td><td class="muted">${esc(item.updatedAt)}</td></tr>`
 				)
 				.join("") ||
 			`<tr><td colspan="8">${PP.emptyState("Nenhum processo corresponde aos filtros", "Ajuste ou limpe os filtros para ver mais resultados.", '<button class="button button-secondary compact-button" type="button" data-empty-clear>Limpar filtros</button>')}</td></tr>`;

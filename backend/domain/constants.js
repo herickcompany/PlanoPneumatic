@@ -16,6 +16,12 @@ const STATUS_LABELS = Object.freeze({
 	Cancelado: "Cancelado"
 });
 const STATUSES = Object.freeze(Object.keys(STATUS_LABELS));
+// Rotulo por tipo: na garantia e na troca, "Aprovado" aparece como "Procedente" (o codigo gravado continua o mesmo).
+const STATUS_LABELS_BY_TYPE = Object.freeze({
+	Garantia: Object.freeze({ Aprovado: "Procedente" }),
+	"Base de troca": Object.freeze({ Aprovado: "Procedente" })
+});
+const statusLabel = (code, type) => STATUS_LABELS_BY_TYPE[type]?.[code] || STATUS_LABELS[code] || code;
 const FINISHED_STATUSES = Object.freeze(["Concluido", "Encerrado", "Cancelado"]);
 const DONE_STATUSES = Object.freeze(["Aprovado", "Concluido", "Encerrado"]);
 const PAUSING_STATUS = "Aguardando documento";
@@ -56,6 +62,8 @@ module.exports = {
 	CASE_TYPES,
 	CASE_PREFIX,
 	STATUS_LABELS,
+	STATUS_LABELS_BY_TYPE,
+	statusLabel,
 	STATUSES,
 	FINISHED_STATUSES,
 	DONE_STATUSES,
