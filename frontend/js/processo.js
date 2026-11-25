@@ -171,7 +171,7 @@ document.head.appendChild(sharedShellScript);
 		addRow();
 	}
 
-	// Historico de venda do produto da linha: para o cliente do pedido e no geral.
+	// Historico de venda: ultimas compras desta peca pelo cliente do pedido, numa caixa com rolagem.
 	async function showHistory(row) {
 		const panel = document.querySelector("#sales-history");
 		const code = row.querySelector('[data-item="productCode"]').value.trim();
@@ -180,26 +180,35 @@ document.head.appendChild(sharedShellScript);
 			panel.hidden = true;
 			return;
 		}
+		const heading = (subtitle) =>
+			`<div class="section-heading"><div><p class="eyebrow">Histórico de compras do cliente</p><h3>${esc(code)}${subtitle ? ` · ${esc(subtitle)}` : ""}</h3></div><button type="button" class="close-button" data-close-history aria-label="Fechar histórico">×</button></div>`;
+		const bindClose = () => panel.querySelector("[data-close-history]")?.addEventListener("click", () => (panel.hidden = true));
+		if (!form.dataset.customerId) {
+			panel.hidden = false;
+			panel.innerHTML = `${heading("")}<p class="muted">Escolha um cliente cadastrado para ver as últimas compras desta peça.</p>`;
+			bindClose();
+			return;
+		}
 		const request = ++historyRequest;
 		panel.hidden = false;
 		panel.innerHTML = `<p class="muted">Buscando histórico de venda de ${esc(code)}…</p>`;
 		try {
-			const customer = form.dataset.customerId ? `&customerId=${encodeURIComponent(form.dataset.customerId)}` : "";
-			const history = await api.get(`/api/products/sales-history?code=${encodeURIComponent(code)}${customer}`);
+			const history = await api.get(`/api/products/sales-history?code=${encodeURIComponent(code)}&customerId=${encodeURIComponent(form.dataset.customerId)}`);
 			if (request !== historyRequest) return;
-			const list = (rows, withCustomer) =>
-				rows.length
-					? `<ol class="history-list">${rows
-							.map(
-								(sale) =>
-									`<li><span>${esc(sale.date ? new Date(`${sale.date}T12:00:00`).toLocaleDateString("pt-BR") : "—")}${withCustomer ? ` · ${esc(sale.customerName || "")}` : ""} · ${esc(sale.quantity)} un · <small class="muted">${esc(sale.source)} ${esc(sale.document || "")}</small></span><button type="button" class="link-button" data-use-price="${esc(sale.unitPrice)}" title="Usar este valor no item">${esc(PP.money(sale.unitPrice))}</button></li>`
-							)
-							.join("")}</ol>`
-					: '<p class="muted">Sem vendas registradas.</p>';
-			panel.innerHTML = `<div class="section-heading"><div><p class="eyebrow">Histórico de venda</p><h3>${esc(code)}${history.general.length ? ` · últimas ${esc(history.general.length)} vendas` : ""}</h3></div><button type="button" class="close-button" data-close-history aria-label="Fechar histórico">×</button></div>
-				<div class="history-columns"><div><strong>${form.dataset.customerId ? `Para ${esc(form.client.value)}` : "Para este cliente"}</strong>${form.dataset.customerId ? list(history.customer, false) : '<p class="muted">Escolha um cliente cadastrado para ver os preços praticados com ele.</p>'}</div><div><strong>Geral (todos os clientes)</strong>${list(history.general, true)}</div></div>
-				<p class="muted">Clique no valor para usar no item.</p>`;
-			panel.querySelector("[data-close-history]").addEventListener("click", () => (panel.hidden = true));
+			const sales = history.customer;
+			const date = (value) => (value ? new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR") : "—");
+			panel.innerHTML = `${heading(sales.length ? `últimas ${sales.length} compra(s) de ${form.client.value}` : form.client.value)}
+				${
+					sales.length
+						? `<div class="history-scroll" tabindex="0" aria-label="Últimas compras do cliente"><table class="history-table"><thead><tr><th>Data</th><th>Qtd</th><th>Valor unitário</th><th>Total</th><th>Documento</th></tr></thead><tbody>${sales
+								.map(
+									(sale) =>
+										`<tr><td>${esc(date(sale.date))}</td><td>${esc(sale.quantity)}</td><td><button type="button" class="link-button" data-use-price="${esc(sale.unitPrice)}" title="Usar este valor no item">${esc(PP.money(sale.unitPrice))}</button></td><td>${esc(PP.money(sale.quantity * sale.unitPrice))}</td><td><small class="muted">${esc(sale.source)} ${esc(sale.document || "")}</small></td></tr>`
+								)
+								.join("")}</tbody></table></div><p class="muted">Role para ver as compras mais antigas. Clique no valor para usar no item.</p>`
+						: '<p class="muted">Este cliente ainda não comprou esta peça.</p>'
+				}`;
+			bindClose();
 			panel.querySelectorAll("[data-use-price]").forEach((button) =>
 				button.addEventListener("click", () => {
 					const input = activeRow?.querySelector('[data-item="unitPrice"]');

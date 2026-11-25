@@ -618,24 +618,31 @@ tr.sla-warning td:first-child {
 	font-size: 15px;
 	margin: 0;
 }
-.history-columns {
-	display: grid;
-	gap: 16px;
-	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+/* Caixa pequena com rolagem: ultimas compras do cliente (data, quantidade, valor). */
+.history-scroll {
+	border: 1px solid var(--border, #e1e7ef);
+	border-radius: 8px;
 	margin-top: 8px;
+	max-height: 210px;
+	overflow-y: auto;
 }
-.history-list {
-	list-style: none;
-	margin: 6px 0 0;
-	padding: 0;
+.history-table {
+	border-collapse: collapse;
+	font-size: 13.5px;
+	width: 100%;
 }
-.history-list li {
-	align-items: center;
-	border-bottom: 1px dashed var(--border, #e1e7ef);
-	display: flex;
-	gap: 8px;
-	justify-content: space-between;
-	padding: 4px 0;
+.history-table th {
+	background: var(--surface-3, #eef2f7);
+	position: sticky;
+	text-align: left;
+	top: 0;
+}
+.history-table th,
+.history-table td {
+	padding: 5px 10px;
+}
+.history-table tbody tr + tr td {
+	border-top: 1px dashed var(--border, #e1e7ef);
 }
 .item-note {
 	color: var(--muted, #5b6a7c);
