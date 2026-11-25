@@ -1,5 +1,5 @@
 const { database, withTransaction } = require("../db");
-const { CASE_PREFIX, CHECKLIST_TEMPLATES, FINISHED_STATUSES, PAUSING_STATUS, STATUS_LABELS, roles } = require("../domain/constants");
+const { CASE_PREFIX, CHECKLIST_TEMPLATES, FINISHED_STATUSES, PAUSING_STATUS, statusLabel, roles } = require("../domain/constants");
 const { can, capabilities } = require("../domain/permissions");
 const { allowedTransitions, validateTransition, FINAL_STATUSES, REOPEN_TARGET } = require("../domain/workflow");
 const { AppError, badRequest, conflict, forbidden, notFound } = require("../middleware/errors");
@@ -10,6 +10,7 @@ const { notifyCaseParticipants, notifyUser } = require("./notifications");
 const { dispatchWebhook } = require("./webhooks");
 const settings = require("./settings");
 const omie = require("./omie");
+const carcass = require("./carcass");
 
 const FIELD_COLUMNS = Object.freeze({
 	client: "client",
@@ -19,6 +20,7 @@ const FIELD_COLUMNS = Object.freeze({
 	quantity: "quantity",
 	documentReference: "document_reference",
 	notes: "notes",
+	invoiceNotes: "invoice_notes",
 	customerId: "customer_id",
 	productId: "product_id",
 	salesRepresentative: "sales_representative",
@@ -108,6 +110,7 @@ function formatCaseDetail(item) {
 		decidedAt: item.decided_at,
 		closedAt: item.closed_at,
 		reopenCount: item.reopen_count,
+		invoiceNotes: item.invoice_notes || "",
 		omieOrderNumber: item.omie_order_number || "",
 		commercialDivergence: item.commercial_divergence || null
 	};
@@ -200,6 +203,32 @@ async function resolveRegistry(db, data) {
 	return { customerId, productId };
 }
 
+async function insertItems(db, caseId, items) {
+	for (const entry of items) {
+		await db.query(
+			"INSERT INTO case_items (case_id, product_code, description, quantity, unit_price, serial_number, lot_number, notes, carcass) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+			[
+				caseId,
+				entry.productCode,
+				entry.description,
+				entry.quantity,
+				entry.unitPrice ?? null,
+				entry.serialNumber ?? null,
+				entry.lotNumber ?? null,
+				entry.notes ?? null,
+				Boolean(entry.carcass)
+			]
+		);
+	}
+}
+
+// Resumo do pedido gravado no processo (listas, busca e relatorios usam estas colunas).
+const itemsSummary = (items) => ({
+	product: items.length > 1 ? `${items[0].description} (+${items.length - 1})` : items[0].description,
+	productCode: items[0].productCode,
+	quantity: items.reduce((sum, entry) => sum + entry.quantity, 0)
+});
+
 async function createCase(user, data) {
 	if (!can(user, capabilities.CREATE_CASE)) throw forbidden();
 	try {
@@ -207,13 +236,7 @@ async function createCase(user, data) {
 			await assertNoDuplicateOrigin(db, data.type, data.documentReference);
 			const { customerId, productId } = await resolveRegistry(db, data);
 			const items = data.items || [];
-			const summary = items.length
-				? {
-						product: items.length > 1 ? `${items[0].description} (+${items.length - 1})` : items[0].description,
-						productCode: items[0].productCode,
-						quantity: items.reduce((sum, entry) => sum + entry.quantity, 0)
-					}
-				: { product: data.product, productCode: data.productCode, quantity: data.quantity };
+			const summary = items.length ? itemsSummary(items) : { product: data.product, productCode: data.productCode, quantity: data.quantity };
 			const caseNumber = await nextCaseNumber(db, data.type);
 			const slaDays = await getSlaDays(data.type, db);
 			const columns = ["case_number", "type", "status", "responsible", "created_by", "assigned_to", "customer_id", "product_id", "due_at"];
@@ -232,12 +255,8 @@ async function createCase(user, data) {
 			const placeholders = values.map((_, index) => `$${index + 1}`).join(", ");
 			const { rows } = await db.query(`INSERT INTO cases (${columns.join(", ")}) VALUES (${placeholders}) RETURNING *`, values);
 			const inserted = rows[0];
-			for (const entry of items) {
-				await db.query(
-					"INSERT INTO case_items (case_id, product_code, description, quantity, unit_price, serial_number, lot_number) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-					[inserted.id, entry.productCode, entry.description, entry.quantity, entry.unitPrice ?? null, entry.serialNumber ?? null, entry.lotNumber ?? null]
-				);
-			}
+			await insertItems(db, inserted.id, items);
+			if (items.some((entry) => entry.carcass)) await carcass.syncCaseEntries(db, inserted, items, user);
 			await addEvent(db, inserted.id, "ABERTURA", "Caso criado na triagem", user);
 			for (const label of CHECKLIST_TEMPLATES[data.type])
 				await db.query("INSERT INTO case_checklist_items (case_id, label) VALUES ($1, $2)", [inserted.id, label]);
@@ -302,7 +321,7 @@ async function getCaseDetail(user, caseNumber) {
 			[item.id]
 		),
 		database.query(
-			'SELECT id, product_code AS "productCode", description, quantity, unit_price AS "unitPrice", serial_number AS "serialNumber", lot_number AS "lotNumber" FROM case_items WHERE case_id = $1 ORDER BY id',
+			'SELECT id, product_code AS "productCode", description, quantity, unit_price AS "unitPrice", serial_number AS "serialNumber", lot_number AS "lotNumber", notes, carcass FROM case_items WHERE case_id = $1 ORDER BY id',
 			[item.id]
 		),
 		database.query('SELECT id, label, completed, completed_at AS "completedAt" FROM case_checklist_items WHERE case_id = $1 ORDER BY id', [item.id]),
@@ -331,6 +350,7 @@ async function getCaseDetail(user, caseNumber) {
 		allowedTransitions: item.archived_at ? [] : allowedTransitions(user, item),
 		permissions: {
 			edit: can(user, capabilities.EDIT_CASE) && !FINAL_STATUSES.includes(item.status),
+			editItems: item.type === "Pedido de venda" && can(user, capabilities.EDIT_CASE) && !FINAL_STATUSES.includes(item.status) && !item.archived_at,
 			technical: can(user, capabilities.TECHNICAL_ANALYSIS),
 			logistics: can(user, capabilities.MANAGE_LOGISTICS),
 			assign: can(user, capabilities.ASSIGN_CASES),
@@ -406,6 +426,68 @@ async function updateCase(user, caseNumber, data, rawBody) {
 	}
 }
 
+// Edicao dos itens depois de lancado (incluir/excluir produto, alterar quantidade e valor). So pedido de venda.
+async function replaceItems(user, caseNumber, items) {
+	if (!can(user, capabilities.EDIT_CASE)) throw forbidden();
+	const result = await withTransaction(async (db) => {
+		const current = await findCase(caseNumber, user, { db, lock: true, includeArchived: false });
+		if (current.type !== "Pedido de venda") throw badRequest("So pedidos de venda tem itens editaveis.", "NOT_AN_ORDER");
+		if (FINAL_STATUSES.includes(current.status))
+			throw new AppError(422, "Processo encerrado ou cancelado nao pode ser editado. Reabra o processo primeiro.", "CASE_LOCKED");
+		const { rows: before } = await db.query(
+			'SELECT product_code AS "productCode", description, quantity, unit_price AS "unitPrice", notes, carcass FROM case_items WHERE case_id = $1 ORDER BY id',
+			[current.id]
+		);
+		const previous = before.length
+			? before.map((row) => ({ ...row, unitPrice: row.unitPrice === null ? null : Number(row.unitPrice) }))
+			: [
+					{
+						productCode: current.product_code,
+						description: current.product,
+						quantity: current.quantity,
+						unitPrice: current.unit_price === null ? null : Number(current.unit_price)
+					}
+				];
+		await db.query("DELETE FROM case_items WHERE case_id = $1", [current.id]);
+		await insertItems(db, current.id, items);
+		const summary = itemsSummary(items);
+		const { rows } = await db.query(
+			"UPDATE cases SET product = $2, product_code = $3, quantity = $4, unit_price = $5, updated_at = NOW() WHERE id = $1 RETURNING *",
+			[current.id, summary.product, summary.productCode, summary.quantity, items[0].unitPrice ?? null]
+		);
+		const same = (a, b) => String(a.productCode).toLowerCase() === String(b.productCode).toLowerCase();
+		const line = (entry) =>
+			`${entry.productCode} × ${entry.quantity}${entry.unitPrice !== null && entry.unitPrice !== undefined ? ` a R$ ${Number(entry.unitPrice).toFixed(2).replace(".", ",")}` : ""}${entry.carcass ? " (base de troca)" : ""}`;
+		const added = items.filter((entry) => !previous.some((old) => same(old, entry)));
+		const removed = previous.filter((old) => !items.some((entry) => same(old, entry)));
+		const changed = items.filter((entry) => {
+			const old = previous.find((candidate) => same(candidate, entry));
+			return (
+				old &&
+				(old.quantity !== entry.quantity || Number(old.unitPrice ?? -1) !== Number(entry.unitPrice ?? -1) || Boolean(old.carcass) !== Boolean(entry.carcass))
+			);
+		});
+		const parts = [];
+		if (added.length) parts.push(`incluído(s) ${added.map(line).join(", ")}`);
+		if (removed.length) parts.push(`excluído(s) ${removed.map(line).join(", ")}`);
+		if (changed.length) parts.push(`alterado(s) ${changed.map(line).join(", ")}`);
+		await addEvent(
+			db,
+			current.id,
+			"ITENS",
+			parts.length ? `${parts.join("; ")}`.replace(/^./, (letter) => letter.toUpperCase()) : "Itens revisados sem alteração",
+			user,
+			{
+				items: { before: previous.map(line), after: items.map(line) }
+			}
+		);
+		await carcass.syncCaseEntries(db, rows[0], items, user);
+		return rows[0];
+	});
+	if (result.omie_order_number) track(validateAgainstOmie(result, user, { omieOrderNumber: result.omie_order_number, items }));
+	return result;
+}
+
 async function changeStatus(user, caseNumber, { status, reason, destination }) {
 	const result = await withTransaction(async (db) => {
 		const current = await findCase(caseNumber, user, { db, lock: true, includeArchived: false });
@@ -448,12 +530,19 @@ async function changeStatus(user, caseNumber, { status, reason, destination }) {
 		}
 		values.push(current.id);
 		const { rows } = await db.query(`UPDATE cases SET ${sets.join(", ")} WHERE id = $${values.length} RETURNING *`, values);
-		const label = (code) => STATUS_LABELS[code] || code;
+		// Pedido cancelado estorna os debitos de carcaca; reaberto, volta a lancar.
+		if (current.type === "Pedido de venda" && (status === "Cancelado" || current.status === "Cancelado")) {
+			const { rows: caseItems } = await db.query('SELECT product_code AS "productCode", description, quantity, carcass FROM case_items WHERE case_id = $1', [
+				current.id
+			]);
+			await carcass.syncCaseEntries(db, rows[0], caseItems, user);
+		}
+		const label = (code) => statusLabel(code, current.type);
 		const description = isReopen
 			? `Processo reaberto (de ${label(current.status)}). Justificativa: ${reason}`
 			: `Status alterado de ${label(current.status)} para ${label(status)}${reason ? `. Motivo: ${reason}` : ""}`;
 		await addEvent(db, current.id, isReopen ? "REABERTURA" : "STATUS", description, user, { from: current.status, to: status, reason: reason || null });
-		await notifyCaseParticipants(current, user.id, "STATUS_CHANGED", `O processo ${caseNumber} mudou para ${status}.`, db);
+		await notifyCaseParticipants(current, user.id, "STATUS_CHANGED", `O processo ${caseNumber} mudou para ${label(status)}.`, db);
 		return { updated: rows[0], previous: current.status };
 	});
 	dispatchWebhook("case.status_changed", { id: caseNumber, previousStatus: result.previous, status });
@@ -510,6 +599,7 @@ module.exports = {
 	getCaseDetail,
 	listCases,
 	updateCase,
+	replaceItems,
 	changeStatus,
 	assignCase,
 	setArchived

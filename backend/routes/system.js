@@ -28,6 +28,7 @@ router.get("/meta", (request, response) =>
 	response.json({
 		caseTypes: constants.CASE_TYPES,
 		statuses: constants.STATUSES.map((code) => ({ code, label: constants.STATUS_LABELS[code] })),
+		statusLabelsByType: constants.STATUS_LABELS_BY_TYPE,
 		finishedStatuses: constants.FINISHED_STATUSES,
 		transitions,
 		roles: constants.ROLE_LABELS,

@@ -97,6 +97,16 @@ router.patch(
 	})
 );
 
+// Itens do pedido de venda depois de lancado: a lista enviada substitui a atual.
+router.put(
+	"/:caseNumber/items",
+	wrap(async (request, response) => {
+		const { items } = schemas.itemsUpdateSchema.parse(request.body);
+		await cases.replaceItems(request.user, caseParam(request), items);
+		return response.json({ case: await cases.getCaseDetail(request.user, caseParam(request)) });
+	})
+);
+
 router.patch(
 	"/:caseNumber/status",
 	wrap(async (request, response) => {

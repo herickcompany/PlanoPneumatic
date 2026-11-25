@@ -114,33 +114,58 @@ function mapCustomer(record) {
 		document: digits && isValidDocument(digits) ? digits : null,
 		email: clean(String(record.email || "").split(/[;,]/)[0], 180),
 		phone: clean([record.telefone1_ddd, record.telefone1_numero].filter(Boolean).join(" "), 40),
-		active: record.inativo !== "S"
+		active: record.inativo !== "S",
+		// Aba "Recomendacoes" do cadastro do cliente no Omie: vendedor e numero de parcelas (prazo) padrao.
+		sellerCode: Number(record.recomendacoes?.codigo_vendedor) || null,
+		paymentCode: clean(record.recomendacoes?.numero_parcelas, 20)
 	};
 }
 
 async function upsertCustomer(item) {
-	const values = [item.name, item.email, item.phone, item.active];
+	const values = [item.name, item.email, item.phone, item.active, item.sellerCode ?? null, item.paymentCode ?? null];
+	const commercial = "omie_seller_code = $6, omie_payment_code = $7";
 	let result = await database.query(
-		"UPDATE customers SET name = $2, email = COALESCE($3, email), phone = COALESCE($4, phone), active = $5, omie_synced_at = NOW(), updated_at = NOW() WHERE omie_code = $1 RETURNING id",
+		`UPDATE customers SET name = $2, email = COALESCE($3, email), phone = COALESCE($4, phone), active = $5, ${commercial}, omie_synced_at = NOW(), updated_at = NOW() WHERE omie_code = $1 RETURNING id`,
 		[item.omieCode, ...values]
 	);
 	if (result.rowCount) return "updated";
 	if (item.document) {
 		result = await database.query(
-			"UPDATE customers SET omie_code = $1, name = $3, email = COALESCE($4, email), phone = COALESCE($5, phone), active = $6, omie_synced_at = NOW(), updated_at = NOW() WHERE document = $2 AND omie_code IS NULL RETURNING id",
-			[item.omieCode, item.document, ...values]
+			`UPDATE customers SET omie_code = $1, name = $2, email = COALESCE($3, email), phone = COALESCE($4, phone), active = $5, ${commercial}, omie_synced_at = NOW(), updated_at = NOW() WHERE document = $8 AND omie_code IS NULL RETURNING id`,
+			[item.omieCode, ...values, item.document]
 		);
 		if (result.rowCount) return "updated";
 	}
-	await database.query("INSERT INTO customers (omie_code, name, document, email, phone, active, omie_synced_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())", [
-		item.omieCode,
-		item.name,
-		item.document,
-		item.email,
-		item.phone,
-		item.active
-	]);
+	await database.query(
+		"INSERT INTO customers (omie_code, name, document, email, phone, active, omie_seller_code, omie_payment_code, omie_synced_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())",
+		[item.omieCode, item.name, item.document, item.email, item.phone, item.active, item.sellerCode ?? null, item.paymentCode ?? null]
+	);
 	return "created";
+}
+
+// Vendedores e condicoes de pagamento (tabela de parcelas) do Omie: so para mostrar o nome no pedido.
+async function upsertSeller(record) {
+	const code = Number(record.codigo);
+	const name = clean(record.nome, 120);
+	if (!code || !name) return "skipped";
+	const { rows } = await database.query(
+		`INSERT INTO omie_sellers (code, name, active, synced_at) VALUES ($1, $2, $3, NOW())
+		 ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, active = EXCLUDED.active, synced_at = NOW() RETURNING (xmax = 0) AS inserted`,
+		[code, name, record.inativo !== "S"]
+	);
+	return rows[0].inserted ? "created" : "updated";
+}
+
+async function upsertPaymentTerm(record) {
+	const code = clean(record.nCodigo, 20);
+	const description = clean(record.cDescricao, 120);
+	if (!code || !description) return "skipped";
+	const { rows } = await database.query(
+		`INSERT INTO omie_payment_terms (code, description, installments, synced_at) VALUES ($1, $2, $3, NOW())
+		 ON CONFLICT (code) DO UPDATE SET description = EXCLUDED.description, installments = EXCLUDED.installments, synced_at = NOW() RETURNING (xmax = 0) AS inserted`,
+		[code, description, Number(record.nParcelas) || null]
+	);
+	return rows[0].inserted ? "created" : "updated";
 }
 
 async function upsertProduct(record) {
@@ -205,6 +230,25 @@ const SYNCS = {
 		intervalMinutes: () => Number(process.env.OMIE_SYNC_INTERVAL_HOURS || 24) * 60,
 		handle: upsertProduct
 	},
+	// Listas pequenas: sempre carga completa (full), junto com a rotina de clientes.
+	sellers: {
+		endpoint: "geral/vendedores",
+		method: "ListarVendedores",
+		key: "cadastro",
+		extra: { apenas_importado_api: "N" },
+		full: true,
+		intervalMinutes: () => Number(process.env.OMIE_SYNC_INTERVAL_HOURS || 24) * 60,
+		handle: upsertSeller
+	},
+	paymentTerms: {
+		endpoint: "geral/parcelas",
+		method: "ListarParcelas",
+		key: "cadastros",
+		extra: {},
+		full: true,
+		intervalMinutes: () => Number(process.env.OMIE_SYNC_INTERVAL_HOURS || 24) * 60,
+		handle: upsertPaymentTerm
+	},
 	// Espelho de pedidos e notas: incremental frequente (padrao 10 min).
 	orders: {
 		endpoint: "produtos/pedido",
@@ -238,7 +282,7 @@ async function runSync(kind, { trigger = "manual", userId = null } = {}) {
 		[kind]
 	);
 	if (running[0]) throw new AppError(409, "Ja existe uma sincronizacao em andamento.", "SYNC_RUNNING");
-	const since = await lastSuccess(kind);
+	const since = spec.full ? null : await lastSuccess(kind);
 	const filter = {
 		...spec.extra,
 		...(since ? { filtrar_por_data_de: omieDate(new Date(new Date(since).getTime() - 86400000)), ...(spec.incremental || {}) } : {})
@@ -408,6 +452,8 @@ module.exports = {
 	mapCustomer,
 	upsertCustomer,
 	upsertProduct,
+	upsertSeller,
+	upsertPaymentTerm,
 	lastSuccess,
 	startOmieScheduler,
 	onSchedulerTick,

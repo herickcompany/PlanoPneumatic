@@ -573,6 +573,82 @@ tr.sla-warning td:first-child {
 .items-table tbody tr:hover td {
 	background: transparent;
 }
+/* Itens do pedido de venda: tabela unica com observacao, base de troca e historico de venda. */
+.order-items {
+	min-width: 860px;
+}
+.order-items td:nth-child(1) input {
+	width: 110px;
+}
+.order-items td:nth-child(2) {
+	width: 34%;
+}
+.order-items td:nth-child(2) input,
+.order-items td:nth-child(5) input {
+	min-width: 220px;
+	width: 100%;
+}
+.order-items td:nth-child(3) input {
+	width: 72px;
+}
+.order-items td:nth-child(4) input {
+	width: 110px;
+}
+.order-items .center-cell,
+.items-view .center-cell {
+	text-align: center;
+}
+.order-items input[type="checkbox"] {
+	height: 20px;
+	width: 20px;
+}
+.order-items .actions-cell {
+	display: flex;
+	gap: 6px;
+	white-space: nowrap;
+}
+.sales-history {
+	background: var(--surface-2, #f6f8fb);
+	border: 1px solid var(--border, #e1e7ef);
+	border-radius: 10px;
+	margin-top: 12px;
+	padding: 12px 16px;
+}
+.sales-history h3 {
+	font-size: 15px;
+	margin: 0;
+}
+/* Caixa pequena com rolagem: ultimas compras do cliente (data, quantidade, valor). */
+.history-scroll {
+	border: 1px solid var(--border, #e1e7ef);
+	border-radius: 8px;
+	margin-top: 8px;
+	max-height: 210px;
+	overflow-y: auto;
+}
+.history-table {
+	border-collapse: collapse;
+	font-size: 13.5px;
+	width: 100%;
+}
+.history-table th {
+	background: var(--surface-3, #eef2f7);
+	position: sticky;
+	text-align: left;
+	top: 0;
+}
+.history-table th,
+.history-table td {
+	padding: 5px 10px;
+}
+.history-table tbody tr + tr td {
+	border-top: 1px dashed var(--border, #e1e7ef);
+}
+.item-note {
+	color: var(--muted, #5b6a7c);
+	display: block;
+	font-size: 12.5px;
+}
 .items-total {
 	color: var(--text);
 	font-family: var(--font-display);

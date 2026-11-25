@@ -176,7 +176,13 @@
 		.catch(() => {});
 
 	const FALLBACK_LABELS = { Concluido: "Concluído", "Em analise": "Em análise" };
-	const statusLabel = (code) => metaCache?.statuses.find((status) => status.code === code)?.label || FALLBACK_LABELS[code] || code;
+	// Com o tipo do processo, usa o rotulo especifico (ex.: garantia e troca mostram "Procedente" no lugar de "Aprovado").
+	const statusLabel = (code, type) =>
+		metaCache?.statusLabelsByType?.[type]?.[code] ||
+		(type && type !== "Pedido de venda" && code === "Aprovado" ? "Procedente" : null) ||
+		metaCache?.statuses.find((status) => status.code === code)?.label ||
+		FALLBACK_LABELS[code] ||
+		code;
 	const statusTone = (code) => {
 		if (["Aprovado", "Concluido", "Encerrado"].includes(code)) return "green";
 		if (["Aguardando documento", "Em analise", "Em faturamento", "Processando"].includes(code)) return "orange";

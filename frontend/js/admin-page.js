@@ -327,7 +327,7 @@ document.head.appendChild(sharedShellScript);
 								{ key: "responsible", header: "Responsável" },
 								{ key: "dueAt", header: "Vencimento" }
 							],
-							data.stalled.map((item) => ({ ...item, status: PP.statusLabel(item.status), dueAt: PP.formatDateTime(item.dueAt) }))
+							data.stalled.map((item) => ({ ...item, status: PP.statusLabel(item.status, item.type), dueAt: PP.formatDateTime(item.dueAt) }))
 						),
 						productivity: dataTools(
 							"Produtividade por responsável",
@@ -358,7 +358,7 @@ document.head.appendChild(sharedShellScript);
 							.slice(0, 10)
 							.map(
 								(item) =>
-									`<tr><td><a class="table-link" href="/caso.html?id=${encodeURIComponent(item.id)}">${esc(item.id)}</a></td><td>${esc(item.client)}</td><td>${esc(PP.statusLabel(item.status))}</td><td>${esc(PP.formatDateTime(item.dueAt))}</td></tr>`
+									`<tr><td><a class="table-link" href="/caso.html?id=${encodeURIComponent(item.id)}">${esc(item.id)}</a></td><td>${esc(item.client)}</td><td>${esc(PP.statusLabel(item.status, item.type))}</td><td>${esc(PP.formatDateTime(item.dueAt))}</td></tr>`
 							),
 						"Nenhum processo vencido."
 					)}</article></section>
@@ -426,7 +426,7 @@ document.head.appendChild(sharedShellScript);
 									actor: entry.actorName || entry.responsible
 								}))
 							);
-							target.innerHTML = `<div class="kv-grid"><div><small>Processo</small><strong>${esc(item.id)}</strong></div><div><small>Cliente</small><strong>${esc(item.client)}</strong></div><div><small>Tipo</small><strong>${esc(item.type)}</strong></div><div><small>Status</small><strong>${esc(PP.statusLabel(item.status))}</strong></div><div><small>Responsável</small><strong>${esc(item.responsible)}</strong></div><div><small>Prazo</small><strong>${esc(PP.formatDateTime(item.dueAt))}</strong></div></div><div class="panel-heading mt-16"><h3>Linha do tempo</h3>${timelineTools}</div><div class="timeline scroll-box" tabindex="0" aria-label="Linha do tempo (role para ver mais)">${item.events.map((entry) => `<div class="timeline-entry"><strong>${esc(entry.description)}</strong><small>${esc(entry.actorName || entry.responsible)} · ${esc(PP.formatDateTime(entry.createdAt))}</small></div>`).join("")}</div><button class="button button-secondary compact-button" type="button" data-print>Imprimir</button>`;
+							target.innerHTML = `<div class="kv-grid"><div><small>Processo</small><strong>${esc(item.id)}</strong></div><div><small>Cliente</small><strong>${esc(item.client)}</strong></div><div><small>Tipo</small><strong>${esc(item.type)}</strong></div><div><small>Status</small><strong>${esc(PP.statusLabel(item.status, item.type))}</strong></div><div><small>Responsável</small><strong>${esc(item.responsible)}</strong></div><div><small>Prazo</small><strong>${esc(PP.formatDateTime(item.dueAt))}</strong></div></div><div class="panel-heading mt-16"><h3>Linha do tempo</h3>${timelineTools}</div><div class="timeline scroll-box" tabindex="0" aria-label="Linha do tempo (role para ver mais)">${item.events.map((entry) => `<div class="timeline-entry"><strong>${esc(entry.description)}</strong><small>${esc(entry.actorName || entry.responsible)} · ${esc(PP.formatDateTime(entry.createdAt))}</small></div>`).join("")}</div><button class="button button-secondary compact-button" type="button" data-print>Imprimir</button>`;
 							target.querySelector("[data-print]").addEventListener("click", () => window.print());
 						} catch (error) {
 							target.innerHTML = `<p class="feedback">${esc(error.message)}</p>`;
@@ -1445,7 +1445,7 @@ document.head.appendChild(sharedShellScript);
 	// --------------------------------------------------------------- Integracoes
 	async function omieSection() {
 		const status = await api.get("/api/omie/sync").catch(() => ({ configured: false, runs: [] }));
-		const kindLabel = { customers: "Clientes", products: "Produtos" };
+		const kindLabel = { customers: "Clientes", products: "Produtos", sellers: "Vendedores", paymentTerms: "Condições de pagamento" };
 		const runs = table(
 			["Quando", "Tipo", "Origem", "Resultado", "Novos", "Atualizados", "Ignorados"],
 			status.runs
@@ -1459,7 +1459,7 @@ document.head.appendChild(sharedShellScript);
 		return section(
 			"ERP",
 			"Omie",
-			`<p class="muted">Importa clientes e produtos do Omie para os cadastros (carga completa na primeira vez, depois só o que mudou; rotina automática a cada 24 h). Pedidos e notas fiscais são consultados ao abrir um processo.</p>${status.configured ? `<div class="inline-form"><button class="button button-primary compact-button" type="button" data-omie-sync="all">Sincronizar agora</button><button class="button button-secondary compact-button" type="button" data-omie-sync="customers">Só clientes</button><button class="button button-secondary compact-button" type="button" data-omie-sync="products">Só produtos</button><span id="omie-feedback" class="muted" role="status"></span></div>` : '<p class="feedback">Integração não configurada: defina OMIE_APP_KEY e OMIE_APP_SECRET no servidor.</p>'}${runs}`
+			`<p class="muted">Importa clientes (com vendedor e prazo padrão), produtos, vendedores e condições de pagamento do Omie para os cadastros (carga completa na primeira vez, depois só o que mudou; rotina automática a cada 24 h). Pedidos e notas fiscais são consultados ao abrir um processo.</p>${status.configured ? `<div class="inline-form"><button class="button button-primary compact-button" type="button" data-omie-sync="all">Sincronizar agora</button><button class="button button-secondary compact-button" type="button" data-omie-sync="customers">Só clientes</button><button class="button button-secondary compact-button" type="button" data-omie-sync="products">Só produtos</button><span id="omie-feedback" class="muted" role="status"></span></div>` : '<p class="feedback">Integração não configurada: defina OMIE_APP_KEY e OMIE_APP_SECRET no servidor.</p>'}${runs}`
 		);
 	}
 	async function integrationsPage() {
@@ -2138,7 +2138,7 @@ document.head.appendChild(sharedShellScript);
 
 		set(`<section class="indicator-grid report-cards" id="carcass-cards">${PP.skeleton(1)}</section>
 			${canManage ? `<div class="carcass-actions"><button class="button button-primary" type="button" data-carcass-new="debit">+ Registrar saída (cliente deve)</button><button class="button button-secondary" type="button" data-carcass-new="return">Registrar devolução de carcaça</button><button class="button button-secondary" type="button" data-carcass-new="adjustment">Ajuste</button></div>` : ""}
-			<nav class="tabs" role="tablist" aria-label="Visões do controle de carcaças"><button class="active" role="tab" data-carcass-view="customer">Saldo por cliente</button><button role="tab" data-carcass-view="representative">Saldo por representante</button><button role="tab" data-carcass-view="entries">Lançamentos</button><button role="tab" data-carcass-view="representatives">Representantes</button><button role="tab" data-carcass-view="config">Prazo e Omie</button></nav>
+			<nav class="tabs" role="tablist" aria-label="Visões do controle de carcaças"><button class="active" role="tab" data-carcass-view="customer">Saldo por cliente</button><button role="tab" data-carcass-view="product">Saldo por produto</button><button role="tab" data-carcass-view="representative">Saldo por representante</button><button role="tab" data-carcass-view="entries">Lançamentos</button><button role="tab" data-carcass-view="representatives">Representantes</button><button role="tab" data-carcass-view="config">Prazo e Omie</button></nav>
 			<div id="carcass-view" aria-live="polite"></div>`);
 
 		async function renderCards() {
@@ -2151,6 +2151,7 @@ document.head.appendChild(sharedShellScript);
 		async function renderSummary() {
 			const host = document.querySelector("#carcass-view");
 			const byRep = state.view === "representative";
+			const byProduct = state.view === "product";
 			const params = new URLSearchParams({ groupBy: state.view });
 			if (state.q) params.set("q", state.q);
 			if (state.representativeId) params.set("representativeId", state.representativeId);
@@ -2158,9 +2159,11 @@ document.head.appendChild(sharedShellScript);
 			if (state.all) params.set("all", "true");
 			const data = await api.get(`/api/carcass/summary?${params}`);
 			datasets.clear();
+			const groupHeader = byRep ? "Representante" : byProduct ? "Peça" : "Cliente";
 			const columns = [
-				{ key: "name", header: byRep ? "Representante" : "Cliente" },
-				...(byRep ? [{ key: "customerCount", header: "Clientes" }] : [{ key: "representativeName", header: "Representante" }]),
+				{ key: "name", header: groupHeader },
+				...(byProduct ? [{ key: "productDescription", header: "Descrição" }] : []),
+				...(byRep || byProduct ? [{ key: "customerCount", header: "Clientes" }] : [{ key: "representativeName", header: "Representante" }]),
 				{ key: "outstanding", header: "Em aberto" },
 				{ key: "overdue", header: "Vencidas" },
 				{ key: "nextDue", header: "Próximo vencimento" },
@@ -2168,27 +2171,60 @@ document.head.appendChild(sharedShellScript);
 				{ key: "returned", header: "Devolvidas" },
 				{ key: "refused", header: "Refugadas" }
 			];
+			// Exportacao: no saldo por produto sai uma linha por peca e cliente (quem deve o que).
+			const exportColumns = byProduct
+				? [
+						{ key: "productCode", header: "Peça" },
+						{ key: "productDescription", header: "Descrição" },
+						{ key: "customerName", header: "Cliente" },
+						{ key: "representativeName", header: "Representante" },
+						{ key: "outstanding", header: "Em aberto" },
+						{ key: "overdue", header: "Vencidas" },
+						{ key: "nextDue", header: "Próximo vencimento" },
+						{ key: "returned", header: "Devolvidas" },
+						{ key: "refused", header: "Refugadas" }
+					]
+				: columns;
+			const exportRows = byProduct
+				? data.rows.flatMap((row) =>
+						row.lines.map((line) => ({ ...line, productDescription: line.productDescription || row.productDescription, nextDue: formatDate(line.nextDue) }))
+					)
+				: data.rows.map((row) => ({ ...row, nextDue: formatDate(row.nextDue) }));
 			const tools = dataTools(
-				byRep ? "Saldo de carcaças por representante" : "Saldo de carcaças por cliente",
-				columns,
-				data.rows.map((row) => ({ ...row, nextDue: formatDate(row.nextDue) }))
+				byRep ? "Saldo de carcaças por representante" : byProduct ? "Saldo de carcaças por produto" : "Saldo de carcaças por cliente",
+				exportColumns,
+				exportRows
 			);
 			const lineTable = (row) =>
-				`<tr class="carcass-detail"><td colspan="${byRep ? 8 : 8}">${table(
-					[...(byRep ? ["Cliente"] : []), "Peça", "Em aberto", "Vencidas", "Próximo vencimento", "Saídas", "Devolvidas", "Refugadas", ""],
+				`<tr class="carcass-detail"><td colspan="8">${table(
+					[
+						...(byRep || byProduct ? ["Cliente"] : []),
+						...(byProduct ? ["Representante"] : ["Peça"]),
+						"Em aberto",
+						"Vencidas",
+						"Próximo vencimento",
+						"Saídas",
+						"Devolvidas",
+						"Refugadas",
+						""
+					],
 					row.lines.map(
 						(line) =>
-							`<tr>${byRep ? `<td>${esc(line.customerName)}</td>` : ""}<td><strong>${esc(line.productCode)}</strong><br><small class="muted">${esc(line.productDescription || "")}</small></td><td><strong>${esc(line.outstanding)}</strong></td><td>${line.overdue ? `<span class="table-status red">${esc(line.overdue)}</span>` : "0"}</td><td>${esc(formatDate(line.nextDue))}</td><td>${esc(line.debited)}</td><td>${esc(line.returned)}</td><td>${esc(line.refused)}</td><td>${canManage && line.outstanding > 0 && line.customerId ? `<button class="button button-secondary compact-button" type="button" data-carcass-return="${esc(line.customerId)}" data-code="${esc(line.productCode)}" data-name="${esc(line.customerName)}" data-qty="${esc(line.outstanding)}">Registrar devolução</button>` : ""}</td></tr>`
+							`<tr>${byRep || byProduct ? `<td>${esc(line.customerName)}</td>` : ""}${byProduct ? `<td>${esc(line.representativeName || "—")}</td>` : `<td><strong>${esc(line.productCode)}</strong><br><small class="muted">${esc(line.productDescription || "")}</small></td>`}<td><strong>${esc(line.outstanding)}</strong></td><td>${line.overdue ? `<span class="table-status red">${esc(line.overdue)}</span>` : "0"}</td><td>${esc(formatDate(line.nextDue))}</td><td>${esc(line.debited)}</td><td>${esc(line.returned)}</td><td>${esc(line.refused)}</td><td>${canManage && line.outstanding > 0 && line.customerId ? `<button class="button button-secondary compact-button" type="button" data-carcass-return="${esc(line.customerId)}" data-code="${esc(line.productCode)}" data-name="${esc(line.customerName)}" data-qty="${esc(line.outstanding)}">Registrar devolução</button>` : ""}</td></tr>`
 					)
 				)}${!byRep && row.customerId ? `<button class="chip" type="button" data-carcass-ledger="${esc(row.customerId)}" data-name="${esc(row.name)}">Ver lançamentos deste cliente</button>` : ""}</td></tr>`;
 			host.innerHTML = section(
-				byRep ? "Representantes" : "Clientes",
-				byRep ? "Carcaças em aberto por representante" : "Carcaças em aberto por cliente",
-				`<form id="carcass-filters" class="inline-form my-12"><label>Buscar<input name="q" type="search" value="${esc(state.q)}" placeholder="${byRep ? "Representante" : "Cliente ou representante"}" /></label><label>Representante<select name="representativeId">${repOptions(state.representativeId, "Todos")}</select></label><label class="check-inline"><input type="checkbox" name="overdue" ${state.overdue ? "checked" : ""} /> Só com vencidas</label><label class="check-inline"><input type="checkbox" name="all" ${state.all ? "checked" : ""} /> Incluir quitados</label></form>
+				byRep ? "Representantes" : byProduct ? "Produtos" : "Clientes",
+				byRep
+					? "Carcaças em aberto por representante"
+					: byProduct
+						? "Carcaças em aberto por produto (quais clientes devem cada peça)"
+						: "Carcaças em aberto por cliente",
+				`<form id="carcass-filters" class="inline-form my-12"><label>Buscar<input name="q" type="search" value="${esc(state.q)}" placeholder="${byRep ? "Representante" : byProduct ? "Código ou descrição da peça" : "Cliente ou representante"}" /></label><label>Representante<select name="representativeId">${repOptions(state.representativeId, "Todos")}</select></label><label class="check-inline"><input type="checkbox" name="overdue" ${state.overdue ? "checked" : ""} /> Só com vencidas</label><label class="check-inline"><input type="checkbox" name="all" ${state.all ? "checked" : ""} /> Incluir quitados</label></form>
 				${table(
 					[
-						byRep ? "Representante" : "Cliente",
-						byRep ? "Clientes" : "Representante",
+						groupHeader,
+						byRep || byProduct ? "Clientes devendo" : "Representante",
 						"Em aberto",
 						"Vencidas",
 						"Próximo vencimento",
@@ -2199,7 +2235,7 @@ document.head.appendChild(sharedShellScript);
 					data.rows.flatMap((row) => {
 						const open = state.expanded.has(String(row.key));
 						return [
-							`<tr><td><strong>${esc(row.name)}</strong></td><td>${byRep ? esc(row.customerCount) : esc(row.representativeName || "—")}</td><td><strong>${esc(row.outstanding)}</strong></td><td>${row.overdue ? `<span class="table-status red">${esc(row.overdue)} vencida(s)</span>` : '<span class="table-status green">Em dia</span>'}</td><td>${esc(formatDate(row.nextDue))}</td><td>${esc(row.returned)}</td><td>${esc(row.refused)}</td><td><button class="chip" type="button" data-carcass-expand="${esc(row.key)}" aria-expanded="${open}">${open ? "Fechar" : "Detalhar por peça"}</button></td></tr>`,
+							`<tr><td><strong>${esc(row.name)}</strong>${byProduct && row.productDescription ? `<br><small class="muted">${esc(row.productDescription)}</small>` : ""}</td><td>${byRep || byProduct ? esc(row.lines.filter((line) => line.outstanding > 0).length) : esc(row.representativeName || "—")}</td><td><strong>${esc(row.outstanding)}</strong></td><td>${row.overdue ? `<span class="table-status red">${esc(row.overdue)} vencida(s)</span>` : '<span class="table-status green">Em dia</span>'}</td><td>${esc(formatDate(row.nextDue))}</td><td>${esc(row.returned)}</td><td>${esc(row.refused)}</td><td><button class="chip" type="button" data-carcass-expand="${esc(row.key)}" aria-expanded="${open}">${open ? "Fechar" : byProduct ? "Ver clientes" : "Detalhar por peça"}</button></td></tr>`,
 							open ? lineTable(row) : ""
 						];
 					}),
@@ -2414,7 +2450,7 @@ document.head.appendChild(sharedShellScript);
 				${kind === "return" ? '<label>Condição da carcaça<select name="condition" required><option value="aproveitavel">Aproveitável (abate o saldo)</option><option value="refugada">Refugada (não abate)</option></select></label>' : ""}
 				<label>Data<input name="entryDate" type="date" value="${todayIsoDate()}" max="${todayIsoDate()}" /></label>
 				${kind === "debit" ? `<label>Prazo de devolução (opcional)<input name="dueDate" type="date" /></label>` : ""}
-				<label>Documento (NF, pedido)<input name="document" maxlength="120" /></label>
+				<label>${kind === "return" ? "Nº do documento da devolução (NF de entrada, romaneio)" : "Documento (NF, pedido)"}<input name="document" maxlength="120" /></label>
 				<label>Observações${kind === "adjustment" ? " (motivo)" : ""}<input name="notes" maxlength="1000" ${kind === "adjustment" ? "required" : ""} /></label>`;
 			const customers = new Map();
 			setTimeout(() => {

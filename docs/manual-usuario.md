@@ -7,12 +7,20 @@ Acesse com seu e-mail e senha. O menu lateral mostra só o que seu perfil pode u
 - **Triagem:** entrada rápida (tipo, cliente, produto). Você pode completar depois na tela do processo.
 - **Pedido de venda / Base de troca / Garantia:** formulários completos. O CPF/CNPJ é validado e o valor é formatado. Digite 2+ letras no cliente ou no código do produto para preencher a partir do cadastro. O sistema guarda um **rascunho** no seu navegador; se a conexão cair ao salvar, o processo entra numa fila e é enviado quando a internet voltar.
 
+### Pedido de venda
+- **Cliente:** ao escolher um cliente cadastrado, o **vendedor** e o **prazo** são preenchidos sozinhos (cadastro do cliente no Omie; se não houver, o último pedido do cliente no Omie ou no app; se não houver, o representante do cliente). Dá para alterar.
+- **Itens e valores:** todos os produtos ficam numa tabela só. Digite o **código** ou a **descrição** (2+ letras) e o outro campo se completa pelo cadastro. Cada item tem **observação** própria e a marcação **Base de troca** (vem marcada sozinha para peça remanufaturada).
+- **Histórico de venda:** ao escolher o produto (ou no botão "Histórico" da linha) aparecem as últimas 15 vendas da peça **para este cliente** e **no geral** (pedidos do Omie e do app). Clique no valor para usar no item.
+- **Base de troca:** o item marcado gera sozinho a dívida da carcaça no Controle de carcaças (documento = número do pedido). Editar o item ou cancelar o pedido corrige/estorna a dívida.
+- **Nota fiscal e observações:** "Informações para constar na nota fiscal" fica separado das observações internas.
+- **Depois de lançado:** em "Itens e valores", o botão **Editar itens** inclui ou exclui produtos e altera quantidade e valor (enquanto o pedido não estiver encerrado ou cancelado). Tudo fica na linha do tempo. "Informações do processo" mostra só cliente, vendedor, prazo e documento de origem.
+
 ## Tela do processo
 Mostra status, prazo (SLA), responsável, etapas, checklist, anexos, linha do tempo e comentários.
 - **Botões de status:** só aparecem as transições válidas para o tipo e para o seu perfil. "O que falta para avançar" lista o que bloqueia o próximo passo.
 - **Motivo obrigatório:** ao cancelar ou marcar como improcedente. Reabrir um processo encerrado/cancelado exige justificativa (gerente ou administrador).
 - **Concluir/encerrar:** exige checklist completo e ao menos um documento anexado (configurável).
-- **Garantia:** o técnico registra o laudo e assume a responsabilidade técnica; ao aprovar escolhe o destino (reposição, devolução, troca ou arquivo).
+- **Garantia:** o laudo técnico é **opcional** para marcar como procedente ou improcedente; ao marcar como **Procedente** escolhe-se o destino (reposição, devolução, troca ou arquivo). Na garantia e na troca, "Aprovado" aparece como **Procedente**.
 - **Anexos:** JPG, PNG, WEBP ou PDF até 10 MB, escolhendo o tipo (foto, laudo, comprovante, documento). Laudos só são lidos por quem pode vê-los.
 - **Desfazer:** após uma mudança simples de status aparece "Desfazer" por alguns segundos.
 
@@ -34,11 +42,13 @@ Clientes e produtos, importação de pedidos por CSV (modelo para baixar), usuá
 ## Controle de carcaças (aba Base de troca)
 A aba **Base de troca** tem duas partes: **Registrar troca** (o processo de troca que já existia) e **Controle de carcaças**.
 - Quem recebe uma peça remanufaturada fica devendo a carcaça. A saída é registrada à mão ou vem sozinha das NF-e de saída do Omie com peças marcadas como "Remanufaturada" (em Clientes e produtos), a partir da data definida em "Prazo e Omie".
-- Saldo por cliente e por representante (o representante vem do cadastro do cliente e pode ser trocado em um lançamento), com vencidas e próximo vencimento. O prazo padrão é configurável (30 dias por padrão).
-- Devolução aproveitável abate o saldo; refugada fica registrada e não abate. Ajustes pedem motivo; estorno (gerente/administrador) mantém o histórico.
+- Itens de pedido de venda marcados como **Base de troca** também geram a dívida automaticamente (sem contar duas vezes a mesma peça quando a NF do Omie vem do mesmo pedido).
+- Saldo **por cliente**, **por produto** (quais clientes devem cada peça) e por representante (o representante vem do cadastro do cliente e pode ser trocado em um lançamento), com vencidas e próximo vencimento. O prazo padrão é configurável (30 dias por padrão).
+- **Registrar devolução:** informe o **nº do documento da devolução** (NF de entrada, romaneio). Devolução aproveitável abate o saldo; refugada fica registrada e não abate. Ajustes pedem motivo; estorno (gerente/administrador) mantém o histórico.
 - Gerentes e administradores recebem um aviso diário quando há carcaças vencidas.
 
 ## Omie (ERP)
+- **Clientes, produtos, vendedores e condições de pagamento:** "Sincronizar agora" (Integrações) traz tudo; depois a rotina automática roda a cada 24 h. O vendedor e o número de parcelas da aba **Recomendações** do cliente no Omie viram o vendedor e o prazo padrão do pedido de venda.
 - **Pedidos e notas do Omie:** os dados ficam guardados no app e são atualizados pelo próprio Omie (aviso em tempo real por webhook) e por uma busca automática a cada 10 minutos. A tela abre na hora, se atualiza sozinha a cada 30 segundos e tem o botão "Atualizar agora".
 - **Peça nova vai para o Omie:** ao cadastrar, informe a unidade; a peça fica "Aguardando aprovação". Gerente, supervisor ou administrador aprova (uma ou várias de uma vez), informa o NCM e a peça é criada no Omie com o mesmo código. Se o código já existir lá, os cadastros só são ligados. Erros de dados aparecem na peça para corrigir e reenviar; se o Omie estiver fora do ar, o app tenta de novo sozinho (até 3 vezes).
 

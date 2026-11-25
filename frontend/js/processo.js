@@ -17,7 +17,7 @@ document.head.appendChild(sharedShellScript);
 			eyebrow: "Etapa 2 · Comercial",
 			description: "Valide os dados comerciais antes de encaminhar para faturamento ou operação.",
 			submit: "Salvar pedido",
-			fields: ["documentReference", "salesRepresentative", "unitPrice", "paymentTerms", "salesChannel", "serialNumber", "lotNumber"]
+			fields: ["documentReference", "salesRepresentative", "paymentTerms"]
 		},
 		"Base de troca": {
 			title: "Nova base de troca",
@@ -42,9 +42,9 @@ document.head.appendChild(sharedShellScript);
 	let meta;
 	const fieldHtml = {
 		documentReference: () => text("documentReference", processType === "Garantia" ? "Documento de entrada" : "Documento de origem", "Nota fiscal ou pedido"),
-		salesRepresentative: () => text("salesRepresentative", "Vendedor responsável", "Nome do vendedor"),
+		salesRepresentative: () => text("salesRepresentative", "Vendedor", "Puxado do Omie ao escolher o cliente"),
 		unitPrice: () => `<label>Valor unitário<input name="unitPrice" type="text" inputmode="decimal" placeholder="0,00" /></label>`,
-		paymentTerms: () => text("paymentTerms", "Condição de pagamento", "Ex.: 28 dias"),
+		paymentTerms: () => text("paymentTerms", "Prazo (condição de pagamento)", "Ex.: Para 28 dias"),
 		salesChannel: () => text("salesChannel", "Canal de venda", "Ex.: Comercial"),
 		exchangeReason: () => select("exchangeReason", "Motivo da troca", meta.exchangeReasons, true),
 		itemCondition: () => select("itemCondition", "Condição do item", meta.itemConditions, true),
@@ -62,43 +62,180 @@ document.head.appendChild(sharedShellScript);
 		lotNumber: () => text("lotNumber", "Lote", "Opcional")
 	};
 
-	// ---- Itens adicionais do pedido (F6) -------------------------------------------
+	const moneyInput = (value) => Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+	// ---- Itens do pedido de venda ----------------------------------------------------
+	// Tabela unica de itens: codigo <-> descricao se completam pelo cadastro, observacao por item,
+	// marcacao de "base de troca" (gera a divida da carcaca) e historico de venda do produto.
+	const isOrder = processType === "Pedido de venda";
+	const productCache = new Map();
+	let activeRow = null;
+	let historyRequest = 0;
+
+	function rememberProducts(products) {
+		for (const product of products) {
+			productCache.set(`c:${product.code.toLowerCase()}`, product);
+			productCache.set(`d:${product.description.toLowerCase()}`, product);
+		}
+	}
+
+	function setupOrderLayout() {
+		if (!isOrder) return;
+		// Produto, codigo e quantidade ficam so na tabela de itens.
+		for (const name of ["product", "productCode", "quantity"]) form.elements[name]?.closest("label")?.remove();
+		const identification = form.client.closest("section");
+		identification.querySelector("h2").textContent = "Dados do cliente";
+		const notes = form.notes.closest("label");
+		const notesSection = notes.closest("section");
+		notesSection.querySelector("h2").textContent = "Nota fiscal e observações";
+		notes.insertAdjacentHTML(
+			"beforebegin",
+			'<label>Informações para constar na nota fiscal<textarea name="invoiceNotes" rows="3" maxlength="2000" placeholder="Ex.: pedido de compra do cliente, placa do veículo, dados para a NF"></textarea></label>'
+		);
+	}
+
 	function addItemsBlock() {
-		if (processType !== "Pedido de venda") return;
+		if (!isOrder) return;
 		const section = document.createElement("section");
 		section.className = "triage-section";
-		section.innerHTML =
-			'<div class="section-heading"><div><p class="eyebrow">02b · Itens adicionais</p><h2>Outros produtos do pedido</h2></div><button class="button button-secondary compact-button" type="button" id="add-item">+ Adicionar item</button></div><table class="items-table" aria-label="Itens adicionais do pedido"><thead><tr><th>Código</th><th>Descrição</th><th>Qtd</th><th>Unitário (R$)</th><th><span class="sr-only">Remover</span></th></tr></thead><tbody id="items-body"></tbody></table><p class="items-total" id="items-total" aria-live="polite"></p>';
+		section.innerHTML = `<div class="section-heading"><div><p class="eyebrow">02b · Itens e valores</p><h2>Produtos do pedido</h2></div><button class="button button-secondary compact-button" type="button" id="add-item">+ Adicionar item</button></div>
+			<div class="table-wrap"><table class="items-table order-items" aria-label="Itens do pedido"><thead><tr><th>Código *</th><th>Descrição *</th><th>Qtd *</th><th>Unitário (R$)</th><th>Observação do item</th><th>Base de troca</th><th><span class="sr-only">Ações</span></th></tr></thead><tbody id="items-body"></tbody></table></div>
+			<p class="items-total" id="items-total" aria-live="polite"></p>
+			<div class="sales-history" id="sales-history" hidden></div>
+			<datalist id="item-code-options"></datalist><datalist id="item-description-options"></datalist>`;
 		document.querySelector("#special-fields").closest("section").after(section);
 		const body = section.querySelector("#items-body");
+		const codeList = section.querySelector("#item-code-options");
+		const descriptionList = section.querySelector("#item-description-options");
+
+		const search = PP.debounce(async (term, kind) => {
+			if (term.trim().length < 2) return;
+			try {
+				const { products } = await api.get(`/api/products?q=${encodeURIComponent(term.trim())}&limit=10`);
+				rememberProducts(products);
+				if (kind === "code")
+					codeList.innerHTML = products.map((product) => `<option value="${esc(product.code)}">${esc(product.description)}</option>`).join("");
+				else descriptionList.innerHTML = products.map((product) => `<option value="${esc(product.description)}">${esc(product.code)}</option>`).join("");
+			} catch {
+				/* autocomplete e opcional */
+			}
+		});
+
 		const addRow = (values = {}) => {
 			const row = document.createElement("tr");
-			row.innerHTML = `<td><input data-item="productCode" aria-label="Código do item" value="${esc(values.productCode || "")}" /></td><td><input data-item="description" aria-label="Descrição do item" value="${esc(values.description || "")}" /></td><td><input data-item="quantity" type="number" min="1" aria-label="Quantidade do item" value="${esc(values.quantity || 1)}" /></td><td><input data-item="unitPrice" inputmode="decimal" aria-label="Valor unitário do item" value="${esc(values.unitPrice ?? "")}" /></td><td><button type="button" class="close-button" aria-label="Remover item">&times;</button></td>`;
-			row.querySelector("button").addEventListener("click", () => {
-				row.remove();
+			const price = values.unitPrice === undefined || values.unitPrice === null || values.unitPrice === "" ? "" : moneyInput(values.unitPrice);
+			row.innerHTML = `<td><input data-item="productCode" list="item-code-options" autocomplete="off" aria-label="Código do item" value="${esc(values.productCode || "")}" /></td>
+				<td><input data-item="description" list="item-description-options" autocomplete="off" aria-label="Descrição do item" value="${esc(values.description || "")}" /></td>
+				<td><input data-item="quantity" type="number" min="1" aria-label="Quantidade" value="${esc(values.quantity || 1)}" /></td>
+				<td><input data-item="unitPrice" inputmode="decimal" aria-label="Valor unitário" placeholder="0,00" value="${esc(price)}" /></td>
+				<td><input data-item="notes" maxlength="500" aria-label="Observação do item" placeholder="Opcional" value="${esc(values.notes || "")}" /></td>
+				<td class="center-cell"><input data-item="carcass" type="checkbox" aria-label="Base de troca (cliente devolve a carcaça)" ${values.carcass ? "checked" : ""} /></td>
+				<td class="actions-cell"><button class="button button-secondary compact-button" type="button" data-history>Histórico</button><button class="button button-secondary compact-button" type="button" data-remove aria-label="Remover item">×</button></td>`;
+			const field = (name) => row.querySelector(`[data-item="${name}"]`);
+			const fill = (product, from) => {
+				if (!product) return;
+				if (from === "code") field("description").value = product.description;
+				else field("productCode").value = product.code;
+				if (product.remanufactured) field("carcass").checked = true;
+				showHistory(row);
+				updateTotal();
+				saveDraftSoon();
+			};
+			field("productCode").addEventListener("input", (event) => search(event.target.value, "code"));
+			field("description").addEventListener("input", (event) => search(event.target.value, "description"));
+			field("productCode").addEventListener("change", (event) => fill(productCache.get(`c:${event.target.value.trim().toLowerCase()}`), "code"));
+			field("description").addEventListener("change", (event) => fill(productCache.get(`d:${event.target.value.trim().toLowerCase()}`), "description"));
+			row.addEventListener("focusin", () => {
+				activeRow = row;
+			});
+			row.querySelector("[data-history]").addEventListener("click", () => showHistory(row));
+			row.querySelector("[data-remove]").addEventListener("click", () => {
+				if (body.children.length === 1) {
+					row
+						.querySelectorAll("input")
+						.forEach((input) => (input.type === "checkbox" ? (input.checked = false) : (input.value = input.dataset.item === "quantity" ? 1 : "")));
+				} else row.remove();
+				if (activeRow === row) document.querySelector("#sales-history").hidden = true;
 				updateTotal();
 				saveDraftSoon();
 			});
-			PP.bindMoneyInput(row.querySelector('[data-item="unitPrice"]'));
+			PP.bindMoneyInput(field("unitPrice"));
 			body.appendChild(row);
+			return row;
 		};
-		section.querySelector("#add-item").addEventListener("click", () => {
-			addRow();
-			body.lastElementChild.querySelector("input").focus();
-		});
+		section.querySelector("#add-item").addEventListener("click", () => addRow().querySelector("input").focus());
 		body.addEventListener("input", updateTotal);
+		body.addEventListener("change", saveDraftSoon);
 		window.__addItemRow = addRow;
+		window.__clearItemRows = () => body.replaceChildren();
+		addRow();
 	}
+
+	// Historico de venda: ultimas compras desta peca pelo cliente do pedido, numa caixa com rolagem.
+	async function showHistory(row) {
+		const panel = document.querySelector("#sales-history");
+		const code = row.querySelector('[data-item="productCode"]').value.trim();
+		activeRow = row;
+		if (!code) {
+			panel.hidden = true;
+			return;
+		}
+		const heading = (subtitle) =>
+			`<div class="section-heading"><div><p class="eyebrow">Histórico de compras do cliente</p><h3>${esc(code)}${subtitle ? ` · ${esc(subtitle)}` : ""}</h3></div><button type="button" class="close-button" data-close-history aria-label="Fechar histórico">×</button></div>`;
+		const bindClose = () => panel.querySelector("[data-close-history]")?.addEventListener("click", () => (panel.hidden = true));
+		if (!form.dataset.customerId) {
+			panel.hidden = false;
+			panel.innerHTML = `${heading("")}<p class="muted">Escolha um cliente cadastrado para ver as últimas compras desta peça.</p>`;
+			bindClose();
+			return;
+		}
+		const request = ++historyRequest;
+		panel.hidden = false;
+		panel.innerHTML = `<p class="muted">Buscando histórico de venda de ${esc(code)}…</p>`;
+		try {
+			const history = await api.get(`/api/products/sales-history?code=${encodeURIComponent(code)}&customerId=${encodeURIComponent(form.dataset.customerId)}`);
+			if (request !== historyRequest) return;
+			const sales = history.customer;
+			const date = (value) => (value ? new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR") : "—");
+			panel.innerHTML = `${heading(sales.length ? `últimas ${sales.length} compra(s) de ${form.client.value}` : form.client.value)}
+				${
+					sales.length
+						? `<div class="history-scroll" tabindex="0" aria-label="Últimas compras do cliente"><table class="history-table"><thead><tr><th>Data</th><th>Qtd</th><th>Valor unitário</th><th>Total</th><th>Documento</th></tr></thead><tbody>${sales
+								.map(
+									(sale) =>
+										`<tr><td>${esc(date(sale.date))}</td><td>${esc(sale.quantity)}</td><td><button type="button" class="link-button" data-use-price="${esc(sale.unitPrice)}" title="Usar este valor no item">${esc(PP.money(sale.unitPrice))}</button></td><td>${esc(PP.money(sale.quantity * sale.unitPrice))}</td><td><small class="muted">${esc(sale.source)} ${esc(sale.document || "")}</small></td></tr>`
+								)
+								.join("")}</tbody></table></div><p class="muted">Role para ver as compras mais antigas. Clique no valor para usar no item.</p>`
+						: '<p class="muted">Este cliente ainda não comprou esta peça.</p>'
+				}`;
+			bindClose();
+			panel.querySelectorAll("[data-use-price]").forEach((button) =>
+				button.addEventListener("click", () => {
+					const input = activeRow?.querySelector('[data-item="unitPrice"]');
+					if (!input) return;
+					input.value = moneyInput(Number(button.dataset.usePrice));
+					updateTotal();
+					saveDraftSoon();
+				})
+			);
+		} catch (error) {
+			if (request === historyRequest) panel.innerHTML = `<p class="feedback">${esc(error.message)}</p>`;
+		}
+	}
+
 	function readItems() {
 		return [...document.querySelectorAll("#items-body tr")]
 			.map((row) => {
 				const value = (name) => row.querySelector(`[data-item="${name}"]`).value;
 				const price = PP.parseMoney(value("unitPrice"));
+				const notes = value("notes").trim();
 				return {
 					productCode: value("productCode").trim(),
 					description: value("description").trim(),
 					quantity: Number(value("quantity")),
-					...(Number.isFinite(price) ? { unitPrice: price } : {})
+					...(Number.isFinite(price) ? { unitPrice: price } : {}),
+					...(notes ? { notes } : {}),
+					...(row.querySelector('[data-item="carcass"]').checked ? { carcass: true } : {})
 				};
 			})
 			.filter((item) => item.productCode || item.description);
@@ -106,9 +243,37 @@ document.head.appendChild(sharedShellScript);
 	function updateTotal() {
 		const total = document.querySelector("#items-total");
 		if (!total) return;
-		const main = Number(form.quantity.value || 0) * (PP.parseMoney(form.unitPrice?.value) || 0);
-		const extra = readItems().reduce((sum, item) => sum + item.quantity * (item.unitPrice || 0), 0);
-		total.textContent = `Total do pedido: ${PP.money(main + extra)}`;
+		const sum = readItems().reduce((acc, item) => acc + (item.quantity || 0) * (item.unitPrice || 0), 0);
+		total.textContent = `Total do pedido: ${PP.money(sum)}`;
+	}
+
+	// Vendedor e prazo padrao do cliente (Omie > ultimo pedido > representante).
+	const autoFilled = {};
+	async function loadSalesDefaults() {
+		if (!isOrder || !form.dataset.customerId) return;
+		try {
+			const defaults = await api.get(`/api/customers/${encodeURIComponent(form.dataset.customerId)}/sales-defaults`);
+			const filled = [];
+			for (const [name, value] of [
+				["salesRepresentative", defaults.seller],
+				["paymentTerms", defaults.paymentTerms]
+			]) {
+				const input = form.elements[name];
+				if (!input || !value) continue;
+				if (!input.value.trim() || input.value === autoFilled[name]) {
+					input.value = value;
+					autoFilled[name] = value;
+					filled.push(name === "salesRepresentative" ? "vendedor" : "prazo");
+				}
+			}
+			const source = Object.values(defaults.sources || {}).some((origin) => String(origin).startsWith("omie")) ? "do Omie" : "do histórico do cliente";
+			const note = document.querySelector("#defaults-note");
+			const what = filled.length === 2 ? "Vendedor e prazo preenchidos" : filled[0] === "vendedor" ? "Vendedor preenchido" : "Prazo preenchido";
+			if (note) note.textContent = filled.length ? `${what} automaticamente ${source}. Pode alterar se precisar.` : "";
+			saveDraftSoon();
+		} catch {
+			/* opcional */
+		}
 	}
 
 	// ---- Autopreenchimento a partir do cadastro (F3 / usabilidade) -----------------
@@ -120,8 +285,8 @@ document.head.appendChild(sharedShellScript);
 		let products = [];
 		form.client.setAttribute("list", "customer-options");
 		form.client.setAttribute("autocomplete", "off");
-		form.productCode.setAttribute("list", "product-options");
-		form.productCode.setAttribute("autocomplete", "off");
+		form.productCode?.setAttribute("list", "product-options");
+		form.productCode?.setAttribute("autocomplete", "off");
 		const searchCustomers = PP.debounce(async () => {
 			if (form.client.value.trim().length < 2) return;
 			try {
@@ -143,7 +308,7 @@ document.head.appendChild(sharedShellScript);
 			}
 		});
 		form.client.addEventListener("input", searchCustomers);
-		form.productCode.addEventListener("input", searchProducts);
+		form.productCode?.addEventListener("input", searchProducts);
 		form.client.addEventListener("change", () => {
 			const match = customers.find((customer) => customer.name === form.client.value);
 			if (match?.document && !form.clientDocument.value) {
@@ -151,8 +316,9 @@ document.head.appendChild(sharedShellScript);
 			}
 			if (match) form.dataset.customerId = match.id;
 			else delete form.dataset.customerId;
+			loadSalesDefaults();
 		});
-		form.productCode.addEventListener("change", () => {
+		form.productCode?.addEventListener("change", () => {
 			const match = products.find((product) => product.code === form.productCode.value);
 			if (match && !form.product.value) form.product.value = match.description;
 			if (match) form.dataset.productId = match.id;
@@ -165,7 +331,6 @@ document.head.appendChild(sharedShellScript);
 		const status = await api.get("/api/omie/status").catch(() => ({ configured: false }));
 		const input = form.documentReference;
 		if (!status.configured || !input) return;
-		const isOrder = processType === "Pedido de venda";
 		const button = document.createElement("button");
 		button.type = "button";
 		button.className = "button button-secondary compact-button";
@@ -182,16 +347,14 @@ document.head.appendChild(sharedShellScript);
 					if (order.customer) {
 						form.client.value = order.customer.name;
 						if (order.customer.document) form.clientDocument.value = PP.formatDocument(order.customer.document);
+						if (order.customer.id) form.dataset.customerId = order.customer.id;
 					}
-					const [first, ...rest] = order.items;
-					if (first) {
-						form.productCode.value = first.productCode;
-						form.product.value = first.description;
-						form.quantity.value = first.quantity;
-						if (form.unitPrice) form.unitPrice.value = first.unitPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+					if (order.items.length) {
+						window.__clearItemRows?.();
+						order.items.forEach((item) => window.__addItemRow?.(item));
 					}
-					rest.forEach((item) => window.__addItemRow?.(item));
 					updateTotal();
+					loadSalesDefaults();
 					form.dataset.omieOrder = order.orderNumber;
 					PP.toast(`Pedido ${order.orderNumber} importado do Omie (${order.items.length} item(ns)).`, "success");
 				} else {
@@ -229,7 +392,10 @@ document.head.appendChild(sharedShellScript);
 	const saveDraftSoon = PP.debounce(saveDraft, 400);
 	function restoreDraft(draft) {
 		for (const [name, value] of Object.entries(draft.values)) if (form.elements[name]) form.elements[name].value = value;
-		(draft.items || []).forEach((item) => window.__addItemRow?.(item));
+		if (draft.items?.length) {
+			window.__clearItemRows?.();
+			draft.items.forEach((item) => window.__addItemRow?.(item));
+		}
 		updateTotal();
 	}
 	function offerDraft() {
@@ -257,14 +423,12 @@ document.head.appendChild(sharedShellScript);
 	// ---- Envio ---------------------------------------------------------------------
 	function buildPayload() {
 		const value = (name) => (form.elements[name] ? form.elements[name].value.trim() : "");
-		const payload = {
-			type: processType,
-			client: value("client"),
-			product: value("product"),
-			productCode: value("productCode"),
-			quantity: Number(form.quantity.value)
-		};
-		for (const name of ["clientDocument", "notes", ...config.fields]) {
+		const orderItems = isOrder ? readItems() : [];
+		const first = orderItems[0] || {};
+		const payload = isOrder
+			? { type: processType, client: value("client"), product: first.description || "", productCode: first.productCode || "", quantity: first.quantity || 1 }
+			: { type: processType, client: value("client"), product: value("product"), productCode: value("productCode"), quantity: Number(form.quantity.value) };
+		for (const name of ["clientDocument", "notes", ...(isOrder ? ["invoiceNotes"] : []), ...config.fields]) {
 			const raw = value(name);
 			if (raw === "") continue;
 			payload[name] = name === "unitPrice" ? PP.parseMoney(raw) : raw;
@@ -272,17 +436,10 @@ document.head.appendChild(sharedShellScript);
 		if (form.dataset.customerId) payload.customerId = Number(form.dataset.customerId);
 		if (form.dataset.productId) payload.productId = Number(form.dataset.productId);
 		if (form.dataset.omieOrder && form.dataset.omieOrder === payload.documentReference) payload.omieOrderNumber = form.dataset.omieOrder;
-		const extra = readItems();
-		if (extra.length)
-			payload.items = [
-				{
-					productCode: payload.productCode,
-					description: payload.product,
-					quantity: payload.quantity,
-					...(payload.unitPrice !== undefined ? { unitPrice: payload.unitPrice } : {})
-				},
-				...extra
-			];
+		if (isOrder) {
+			payload.items = orderItems;
+			if (first.unitPrice !== undefined) payload.unitPrice = first.unitPrice;
+		}
 		return payload;
 	}
 
@@ -297,6 +454,28 @@ document.head.appendChild(sharedShellScript);
 			if (element.required && !String(element.value).trim()) {
 				PP.setFieldError(element, "Campo obrigatório.");
 				valid = false;
+			}
+		}
+		if (isOrder) {
+			const rows = [...document.querySelectorAll("#items-body tr")];
+			const filled = rows.filter((row) => ["productCode", "description"].some((name) => row.querySelector(`[data-item="${name}"]`).value.trim()));
+			if (!filled.length) {
+				PP.setFieldError(rows[0].querySelector('[data-item="productCode"]'), "Informe ao menos um item.");
+				valid = false;
+			}
+			for (const row of filled) {
+				for (const name of ["productCode", "description"]) {
+					const input = row.querySelector(`[data-item="${name}"]`);
+					if (!input.value.trim()) {
+						PP.setFieldError(input, "Obrigatório.");
+						valid = false;
+					}
+				}
+				const quantity = row.querySelector('[data-item="quantity"]');
+				if (!(Number(quantity.value) >= 1)) {
+					PP.setFieldError(quantity, "Mínimo 1.");
+					valid = false;
+				}
 			}
 		}
 		if (!valid) form.querySelector("[aria-invalid]")?.focus();
@@ -337,7 +516,9 @@ document.head.appendChild(sharedShellScript);
 		document.querySelector("#process-eyebrow").textContent = config.eyebrow;
 		document.querySelector("#process-description").textContent = config.description;
 		document.querySelector("#submit-label").textContent = config.submit;
+		setupOrderLayout();
 		document.querySelector("#special-fields").innerHTML = config.fields.map((name) => fieldHtml[name]()).join("");
+		if (isOrder) document.querySelector("#special-fields").insertAdjacentHTML("afterend", '<p class="muted" id="defaults-note" aria-live="polite"></p>');
 		PP.bindDocumentInput(form.clientDocument);
 		if (form.unitPrice) PP.bindMoneyInput(form.unitPrice);
 		addItemsBlock();

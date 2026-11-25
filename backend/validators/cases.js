@@ -51,7 +51,9 @@ const itemSchema = z.object({
 	quantity: z.coerce.number({ error: "Quantidade invalida." }).int("Quantidade invalida.").min(1, "Quantidade invalida.").max(1000000),
 	unitPrice: money,
 	serialNumber: optionalText(80),
-	lotNumber: optionalText(80)
+	lotNumber: optionalText(80),
+	notes: optionalText(500),
+	carcass: z.boolean().optional()
 });
 
 const baseFields = {
@@ -66,6 +68,7 @@ const baseFields = {
 		.max(1000000),
 	documentReference: optionalText(120),
 	notes: optionalText(4000),
+	invoiceNotes: optionalText(2000),
 	customerId: z.coerce.number().int().positive().optional(),
 	productId: z.coerce.number().int().positive().optional(),
 	salesRepresentative: optionalText(120),
@@ -94,6 +97,11 @@ function requireByType(data, context) {
 		if (!data.itemCondition) missing("itemCondition", "Informe a condicao do item.");
 	}
 }
+
+// Edicao dos itens de um pedido ja lancado: a lista enviada substitui a anterior.
+const itemsUpdateSchema = z.object({
+	items: z.array(itemSchema).min(1, "O pedido precisa de ao menos um item.").max(100, "Maximo de 100 itens por pedido.")
+});
 
 const createCaseSchema = z.object({ type: z.enum(CASE_TYPES, { error: "Tipo de processo invalido." }), ...baseFields }).superRefine(requireByType);
 
@@ -145,6 +153,7 @@ const attachmentMetaSchema = z.object({
 module.exports = {
 	createCaseSchema,
 	updateCaseSchema,
+	itemsUpdateSchema,
 	statusSchema,
 	listQuerySchema,
 	attachmentMetaSchema,
