@@ -577,22 +577,22 @@ tr.sla-warning td:first-child {
 .order-items {
 	min-width: 860px;
 }
-.order-items td:nth-child(1) input {
-	width: 110px;
+/* Larguras minimas nas celulas: os campos tem max-width 100% e encolheriam junto com a coluna. */
+.order-items td:nth-child(1) {
+	min-width: 120px;
 }
-.order-items td:nth-child(2) {
-	width: 34%;
-}
-.order-items td:nth-child(2) input,
-.order-items td:nth-child(5) input {
+.order-items td:nth-child(2),
+.order-items td:nth-child(5) {
 	min-width: 220px;
+}
+.order-items td:nth-child(3) {
+	min-width: 80px;
+}
+.order-items td:nth-child(4) {
+	min-width: 120px;
+}
+.order-items td input:not([type="checkbox"]) {
 	width: 100%;
-}
-.order-items td:nth-child(3) input {
-	width: 72px;
-}
-.order-items td:nth-child(4) input {
-	width: 110px;
 }
 .order-items .center-cell,
 .items-view .center-cell {
