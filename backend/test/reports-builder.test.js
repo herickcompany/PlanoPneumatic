@@ -106,8 +106,10 @@ test("construtor: so gerente e administrador; lista e agrupamento respeitam o es
 		body: { definition: { source: "cases", groupBy: "type", metrics: ["count", "quantity", "value"], sort: { key: "quantity", direction: "desc" } } }
 	});
 	assert.equal(grouped.status, 200);
-	assert.deepEqual(grouped.body.rows[0], { group: "Pedido de venda", count: 1, quantity: 5, value: 0 });
-	assert.deepEqual(grouped.body.rows[1], { group: "Garantia", count: 2, quantity: 5, value: 20 });
+	// Os dois grupos empatam em quantidade (5): a ordem entre eles nao e garantida.
+	const byGroup = Object.fromEntries(grouped.body.rows.map((row) => [row.group, row]));
+	assert.deepEqual(byGroup["Pedido de venda"], { group: "Pedido de venda", count: 1, quantity: 5, value: 0 });
+	assert.deepEqual(byGroup.Garantia, { group: "Garantia", count: 2, quantity: 5, value: 20 });
 
 	// Nomes de coluna fora da lista sao recusados (nada do cliente vai para o SQL).
 	const injected = await h.api("POST", "/api/reports/custom/preview", {
